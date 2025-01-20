@@ -1,5 +1,5 @@
 local driver = localRequire "driver"
-local configTool = localRequire "configtool"
+local configTool = localRequire "lib/configtool"
 local filesystem = driver.filesystem
 
 local function tryCreateFile(gitDir, name, content)

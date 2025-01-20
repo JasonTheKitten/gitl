@@ -33,7 +33,7 @@ end
 --
 
 local driver = localRequire("driver")
-local getopts = localRequire("getopts")
+local getopts = localRequire("lib/getopts")
 
 local filesystem = driver.filesystem
 
