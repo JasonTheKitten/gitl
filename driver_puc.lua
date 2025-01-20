@@ -24,5 +24,8 @@ driver.filesystem.list = function(path)
     end
     return files
 end
+driver.filesystem.makeDir = function(path)
+    lfs.mkdir(path)
+end
 
 return driver
