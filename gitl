@@ -1,0 +1,76 @@
+#!/bin/lua
+-- Some environments do not have /usr/bin/env, so we just specifiy the direct path
+
+local cache = {}
+local localRequire
+function localRequire(name)
+  if cache[name] then
+    return cache[name]
+  end
+
+  local scriptPath = debug.getinfo(1, "S").source:sub(2)
+  local scriptDir = scriptPath:match("(.*/)") or "./"
+  local env = {}
+  for k, v in pairs(_G) do
+    env[k] = v
+  end
+  env.localRequire = localRequire
+
+  local loadName = name
+  if loadName == "driver" then
+    loadName = "driver_puc"
+  end
+  local ok, err = loadfile(scriptDir .. loadName .. ".lua", "t", env)
+  if not ok then
+    error(err)
+  end
+
+  local result = ok()
+  cache[name] = result
+  return result
+end
+
+--
+
+local driver = localRequire("driver")
+local getopts = localRequire("getopts")
+
+local filesystem = driver.filesystem
+
+local optionsSpec, subcommands = {}, {}
+for _, file in ipairs(filesystem.list(filesystem.combine(filesystem.codeDir(), "commands"))) do
+  local command = file:match("(.*)%.lua$")
+  if command then
+    local commandSpec = localRequire("commands/" .. command)
+    if commandSpec then
+      optionsSpec[command] = commandSpec
+    end
+    subcommands[command] = commandSpec.run
+  end
+end
+
+optionsSpec.help = { flag = "help", short = "h", description = "Display this help message" }
+
+local options = getopts.options(optionsSpec)
+local ok, results = getopts.parse(options, { ... }, {
+  argumentPreprocessor = getopts.argumentPreprocessors.detect,
+  delimiter = "-%",
+  commandKey = "command",
+  requireSubcommand = false
+})
+
+if not ok then
+  print(results)
+end
+if ok and (not results.command) and not (results.help) then
+  print("gitl requires a subcommand!")
+end
+if not ok or results.help or not results.command then
+  print(getopts.generateHelpMessage(options))
+end
+if not (ok and results.command) then
+  return
+end
+
+local myCommand = subcommands[results.command]
+myCommand(results[results.command])

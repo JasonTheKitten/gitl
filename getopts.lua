@@ -99,7 +99,7 @@ validateOptionsSpec = function(spec)
     [SUBCOMMANDS_MAP_SYMBOL] = {},
   }
 
-  for key, value in pairs(spec) do
+  for key, value in pairs(spec or {}) do
     if type(value) == "table" then
       if value.flag and type(value.flag) == "function" then
         options[key] = value.flag
@@ -175,7 +175,7 @@ local function generateHelpMessage(options)
     helpMessage = helpMessage .. "  " .. table.concat(subcommand.subcommand, ", ") .. " - " .. subcommand.description .. "\n"
     helpMessage = helpMessage .. generateHelpMessage(subcommand.options)
   end
-  return helpMessage
+  return helpMessage:sub(1, -2)
 end
 
 local innerParse
