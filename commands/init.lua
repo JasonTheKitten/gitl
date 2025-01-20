@@ -44,6 +44,7 @@ local function run()
   filesystem.makeDir(filesystem.combine(gitDir, "info"))
   filesystem.makeDir(filesystem.combine(gitDir, "objects"))
   filesystem.makeDir(filesystem.combine(gitDir, "refs"))
+  filesystem.makeDir(filesystem.combine(gitDir, "refs/heads"))
   tryCreateFile(gitDir, "info/exclude", "# exclude files\n")
 end
 

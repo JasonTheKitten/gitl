@@ -30,7 +30,7 @@ stop.times = function(times)
       return true
     end, function(flagName)
       if #collected ~= times then
-        reportInvalidArguments("Expected " .. times .. " argument(s) for flag " .. flagName .. ", got " .. #collected)
+        reportInvalidArguments("Expected " .. times .. " argument(s) for flag " .. (flagName or "<looseArgs>") .. ", got " .. #collected)
       end
     end
   end
