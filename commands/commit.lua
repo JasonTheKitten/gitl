@@ -1,7 +1,9 @@
 local driver = localRequire "driver"
 local getopts = localRequire "lib/getopts"
 local gitrepo = localRequire "lib/gitl/gitrepo"
+local gitobj = localRequire "lib/gitl/gitobj"
 local gitdex = localRequire "lib/gitl/gitdex"
+local gitref = localRequire "lib/gitl/gitref"
 local gitconfig = localRequire "lib/gitl/gitconfig"
 local filesystem = driver.filesystem
 
@@ -54,7 +56,7 @@ local function run(arguments)
   end
   local author = authorName .. " <" .. authorEmail .. ">"
 
-  local commitTime = driver.utcTime()
+  local commitTime, commitOffset = driver.timeAndOffset()
   local commitTimeFormatted = os.date(nil, commitTime)
 
   local additionalEditMessage = "\n#\n# Date: " .. commitTimeFormatted .. "\n# Author: " .. author .. "\n#\n"
@@ -73,7 +75,25 @@ local function run(arguments)
   local index = gitdex.readIndex(indexPath)
   local treeHash = gitdex.writeTreeFromIndex(gitDir, index)
 
-  print("[main " .. treeHash:sub(1, 7) .. "] " .. commitMsgShort)
+  local commitParent = gitref.getLastCommitHash(gitDir)
+
+  local commitData = {
+    tree = treeHash,
+    parents = { commitParent },
+    author = author,
+    committer = author,
+    authorTime = commitTime,
+    authorTimezoneOffset = commitOffset,
+    committerTime = commitTime,
+    committerTimezoneOffset = commitOffset,
+    message = commitMsg
+  }
+
+  local commitHash = gitobj.writeObject(gitDir, gitobj.encodeCommitData(commitData), "commit")
+  gitref.setLastCommitHash(gitDir, commitHash)
+
+  local formattedCommitHash = gitref.formatCurrentCommitRef(gitDir)
+  print(formattedCommitHash .. " " .. commitMsgShort)
   print(" Date: " .. commitTimeFormatted)
   print(" Author: " .. author)
 end

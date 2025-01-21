@@ -138,8 +138,21 @@ driver.filesystem.openWriteProtected = function(path, mode)
     return newFile, err
 end
 
-driver.utcTime = function()
-    return os.time()
+driver.timeAndOffset = function()
+    local timestamp = os.time()
+    local utcTime = os.date("!*t", timestamp)
+    local localTime = os.date("*t", timestamp)
+
+    ---@diagnostic disable-next-line: param-type-mismatch
+    local timezoneOffsetSeconds = os.difftime(os.time(localTime), os.time(utcTime))
+
+    local sign = (timezoneOffsetSeconds >= 0) and "+" or "-"
+    local absTimezoneOffsetSeconds = math.abs(timezoneOffsetSeconds)
+    local hours = math.floor(absTimezoneOffsetSeconds / 3600)
+    local minutes = math.floor((absTimezoneOffsetSeconds % 3600) / 60)
+    local timezoneOffsetStr = string.format("%s%02d%02d", sign, hours, minutes)
+
+    return timestamp, timezoneOffsetStr
 end
 driver.edit = function(file, editorOverride)
     if editorOverride then

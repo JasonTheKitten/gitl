@@ -114,9 +114,23 @@ local function encodeTreeData(data)
     for i = 1, #entry.hash, 2 do
       hashBinary = hashBinary .. string.char(tonumber(entry.hash:sub(i, i + 1), 16))
     end
-    encoded = encoded .. entry.mode .. " " .. entry.name .. "\0" .. hashBinary
+    encoded = encoded .. string.format("%06d", entry.mode) .. " " .. entry.name .. "\0" .. hashBinary
   end
 
+  return encoded
+end
+
+local function encodeCommitData(data)
+  local encoded = "tree " .. data.tree .. "\n"
+  for _, parent in ipairs(data.parents) do
+    encoded = encoded .. "parent " .. parent .. "\n"
+  end
+  
+  local authorTime = string.format("%d", data.authorTime) .. " " .. (data.authorTimezoneOffset or "+0000")
+  local committerTime = string.format("%d", data.committerTime) .. " " .. (data.committerTimezoneOffset or "+0000")
+  encoded = encoded .. "author " .. data.author .. " " .. authorTime .. "\n"
+  encoded = encoded .. "committer " .. data.committer .. " " .. committerTime .. "\n"
+  encoded = encoded .. "\n" .. data.message
   return encoded
 end
 
@@ -125,6 +139,8 @@ local function encodeObjectData(data, type)
     return encodeBlobData(data)
   elseif type == "tree" then
     return encodeTreeData(data)
+  elseif type == "commit" then
+    return encodeCommitData(data)
   end
   error("Unsupported object type")
 end
@@ -139,5 +155,6 @@ return {
   decodeObjectData = decodeObjectData,
   encodeBlobData = encodeBlobData,
   encodeTreeData = encodeTreeData,
+  encodeCommitData = encodeCommitData,
   encodeObjectData = encodeObjectData
 }

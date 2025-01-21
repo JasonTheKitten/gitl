@@ -55,6 +55,9 @@ local function insertEntry(index, entry)
     if middleEntry.name == entry.name then
       table.insert(index.entries, middleIndex, entry)
       return
+    elseif (middleEntry.name < entry.name) and (index.entries[middleIndex + 1].name > entry.name) then
+      table.insert(index.entries, middleIndex + 1, entry)
+      return
     elseif middleEntry.name < entry.name then
       startIndex = middleIndex + 1
     else
@@ -248,7 +251,7 @@ local function convertToTree(index)
         subtree = {
           type = "tree",
           name = part,
-          mode = 16384, -- TODO: Figure out the correct mode
+          mode = 040000,
           entries = {},
           subtrees = {}
         }
@@ -261,7 +264,7 @@ local function convertToTree(index)
     getOrCreateEntry(currentTree, part, {
       type = "blob",
       name = part,
-      mode = entry.mode,
+      mode = 100644, -- TODO: Figure out the correct mode conversion
       hash = entry.hash
     })
 
