@@ -1,3 +1,6 @@
+local driver = localRequire("driver")
+local filesystem = driver.filesystem
+
 local function createConfigHandle(configData)
   local currentSection
   local handle = {}
@@ -21,7 +24,7 @@ local function createConfigHandle(configData)
     return configData[currentSection][key]
   end
   handle.write = function(filepath)
-    local file = io.open(filepath, "w")
+    local file = filesystem.openWriteProtected(filepath, "w")
     if not file then
       error("Failed to open config file for writing")
     end

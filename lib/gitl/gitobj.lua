@@ -39,10 +39,10 @@ end
 local function writeObject(gitDir, data, type)
   local compressedData, hash = compressObject(data, type)
   local objectPath = filesystem.combine(gitDir, "objects", hash:sub(1, 2), hash:sub(3))
-  local file = io.open(objectPath, "wb")
-  if not file then
-    error("Failed to open object file for writing")
+  if not filesystem.exists(filesystem.combine(gitDir, "objects", hash:sub(1, 2))) then
+    filesystem.makeDir(filesystem.combine(gitDir, "objects", hash:sub(1, 2)))
   end
+  local file = assert(io.open(objectPath, "wb"))
   file:write(compressedData)
   file:close()
   return hash

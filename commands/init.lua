@@ -23,6 +23,8 @@ local function createInitConfig(gitDir)
     .set("filemode", false)
     .set("bare", false)
     .set("logallrefupdates", true)
+    .set("filemode", false) -- TODO: Make it still true in PUC Lua
+    .set("trustctime", false)
   config.write(filesystem.combine(gitDir, "config"))
 end
 

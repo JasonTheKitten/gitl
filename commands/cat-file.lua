@@ -13,7 +13,7 @@ local function run(arguments)
   if type ~= objectType then
     print("Warning: Object type mismatch: " .. type .. " != " .. objectType)
   end
-  print(gitobj.decodeObjectData(content, objectType).formatted)
+  io.write(gitobj.decodeObjectData(content, objectType).formatted)
 end
 
 return {
