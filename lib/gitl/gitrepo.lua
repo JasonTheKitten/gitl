@@ -8,7 +8,7 @@ local function locateProjectRepo(startDir)
       return currentDir
     end
     if filesystem.collapse(currentDir) == "" then
-      return nil
+      return false, "Not a git repository"
     end
     currentDir = filesystem.combine(currentDir, "..")
   end
@@ -17,7 +17,7 @@ end
 local function locateGitRepo(startDir)
   local projectDir = locateProjectRepo(startDir)
   if not projectDir then
-    return nil
+    return false, "Not a git repository"
   end
   return filesystem.combine(projectDir, ".git")
 end

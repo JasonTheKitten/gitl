@@ -43,10 +43,7 @@ local function validateCommitMessage(commitMsg)
 end
 
 local function run(arguments)
-  local gitDir = gitrepo.locateGitRepo()
-  if not gitDir then
-    error("Not a git repository")
-  end
+  local gitDir = assert(gitrepo.locateGitRepo())
 
   local authorName = gitconfig.get(gitDir, "user.name")
   local authorEmail = gitconfig.get(gitDir, "user.email")

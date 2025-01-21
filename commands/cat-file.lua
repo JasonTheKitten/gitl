@@ -3,10 +3,7 @@ local gitobj = localRequire("lib/gitl/gitobj")
 local gitrepo = localRequire("lib/gitl/gitrepo")
 
 local function run(arguments)
-  local gitDir = gitrepo.locateGitRepo()
-  if not gitDir then
-    error("Not a git repository")
-  end
+  local gitDir = assert(gitrepo.locateGitRepo())
   local realArguments = arguments.options.arguments
   local objectType, hash = realArguments[1], realArguments[2]
   local type, content = gitobj.readObject(gitDir, hash)

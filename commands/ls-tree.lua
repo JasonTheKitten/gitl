@@ -29,11 +29,7 @@ function displayTree(gitDir, hash, recursive, fullName)
 end
 
 local function run(arguments)
-  local gitDir = gitrepo.locateGitRepo()
-  if not gitDir then
-    error("Not a git repository")
-  end
-
+  local gitDir = assert(gitrepo.locateGitRepo())
   local hash = arguments.options.arguments[1]
   local recursive = arguments.options.recursive
   displayTree(gitDir, hash, recursive, "")

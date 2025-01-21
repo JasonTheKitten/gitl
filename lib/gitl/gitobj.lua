@@ -94,11 +94,41 @@ local function decodeTreeData(data)
   }
 end
 
+local function decodeCommitData(data)
+  local tree = data:match("tree ([^\n]+)")
+  local parents = {}
+  for parent in data:gmatch("parent ([^\n]+)") do
+    table.insert(parents, parent)
+  end
+  local author = data:match("author ([^\n]+)")
+  local authorTime = tonumber(author:match("([^\n]+)"))
+  local authorTimezoneOffset = author:match("([^\n]+)$")
+  local committer = data:match("committer ([^\n]+)")
+  local committerTime = tonumber(committer:match("([^\n]+)"))
+  local committerTimezoneOffset = committer:match("([^\n]+)$")
+  local message = data:match("\n\n(.+)$")
+
+  return {
+    type = "commit",
+    tree = tree,
+    parents = parents,
+    author = author,
+    authorTime = authorTime,
+    authorTimezoneOffset = authorTimezoneOffset,
+    committer = committer,
+    committerTime = committerTime,
+    committerTimezoneOffset = committerTimezoneOffset,
+    message = message
+  }
+end
+
 local function decodeObjectData(data, type)
   if type == "blob" then
     return decodeBlobData(data)
   elseif type == "tree" then
     return decodeTreeData(data)
+  elseif type == "commit" then
+    return decodeCommitData(data)
   end
   error("Unsupported object type")
 end
@@ -152,6 +182,7 @@ return {
   writeObject = writeObject,
   decodeBlobData = decodeBlobData,
   decodeTreeData = decodeTreeData,
+  decodeCommitData = decodeCommitData,
   decodeObjectData = decodeObjectData,
   encodeBlobData = encodeBlobData,
   encodeTreeData = encodeTreeData,

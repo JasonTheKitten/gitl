@@ -38,7 +38,24 @@ driver.filesystem.collapse = function(path)
     return str
 end
 driver.filesystem.combine = function(...)
-    return table.concat({...}, "/")
+    local result = table.concat({...}, "/")
+    
+    local hasSlash, args, i = false, {...}, 1
+    while i ~= -1 and args[i] do
+        if args[i] == "" then
+            i = i + 1
+        elseif args[i]:sub(1, 1) == "/" then
+            hasSlash = true
+            i = -1
+        else
+            i = i + 1
+        end
+    end
+
+    if not hasSlash and result:sub(1, 1) == "/" then
+        return result:sub(2)
+    end
+    return result
 end
 driver.filesystem.list = function(path)
     local files = {}

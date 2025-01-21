@@ -39,12 +39,18 @@ local function findEntry(index, name)
   end
 end
 
+local function formatEntryName(entry)
+  if entry == nil then return nil end
+  return entry.type == "tree" and (entry.name .. "/\0") or (entry.name .. "\0")
+end
+
 local function insertEntry(index, entry)
-  if (#index.entries == 0) or (index.entries[#index.entries].name < entry.name) then
+  local entryName = formatEntryName(entry)
+  if (#index.entries == 0) or (formatEntryName(index.entries[#index.entries]) < entryName) then
     table.insert(index.entries, entry)
     return
   end
-  if index.entries[1].name > entry.name then
+  if formatEntryName(index.entries[1]) > entryName then
     table.insert(index.entries, 1, entry)
     return
   end
@@ -52,17 +58,29 @@ local function insertEntry(index, entry)
   while startIndex <= endIndex do
     local middleIndex = math.floor((startIndex + endIndex) / 2)
     local middleEntry = index.entries[middleIndex]
-    if middleEntry.name == entry.name then
+    local prevEntry = index.entries[middleIndex - 1]
+    local nextEntry = index.entries[middleIndex + 1]
+
+    local middleEntryName = formatEntryName(middleEntry)
+    if middleEntryName == entryName then
       table.insert(index.entries, middleIndex, entry)
       return
-    elseif (middleEntry.name < entry.name) and (index.entries[middleIndex + 1].name > entry.name) then
+    elseif (middleEntryName < entryName) and nextEntry and (formatEntryName(nextEntry) > entryName) then
       table.insert(index.entries, middleIndex + 1, entry)
       return
-    elseif middleEntry.name < entry.name then
+    elseif (middleEntryName > entryName) and prevEntry and (formatEntryName(prevEntry) < entryName) then
+      table.insert(index.entries, middleIndex, entry)
+      return
+    elseif middleEntryName then
       startIndex = middleIndex + 1
     else
       endIndex = middleIndex - 1
     end
+  end
+  print(entryName)
+  print("Existing entries:")
+  for _, entry in ipairs(index.entries) do
+    print(formatEntryName(entry))
   end
   error("Failed to insert entry")
 end
@@ -107,6 +125,53 @@ local function getEntry(index, name)
     return index.entries[entryIndex]
   end
 end
+
+--
+
+local function compareEntries(entry1, entry2)
+  if entry1 == nil then
+    return false
+  end
+  for key, value in pairs(entry1) do
+    local altVal = entry2[key]
+    if (altVal ~= nil) and (value ~= altVal) and (key ~= "hash") and (key ~= "name") then
+      return false
+    end
+  end
+  return true
+end
+
+
+-- TODO: Also detect removals
+local function addToIndex(index, path, indexPath, filter, gitDir, skipWrite)
+  if indexPath:sub(1, 1) == "/" then
+    indexPath = indexPath:sub(2)
+  end
+  path = filesystem.collapse(path)
+
+  local existingEntry = getEntry(index, indexPath)
+  if not filter(indexPath) then
+    -- Ignore
+  elseif filesystem.isDir(path) then
+    for _, file in ipairs(filesystem.list(path)) do
+      addToIndex(index, filesystem.combine(path, file), filesystem.combine(indexPath, file), filter, gitDir)
+    end
+  elseif filesystem.isFile(path) and not compareEntries(existingEntry, filesystem.attributes(path)) then
+    local fileAttributes = filesystem.attributes(path)
+
+    local fileHandle = assert(io.open(path, "rb"))
+    local content = fileHandle:read("*a")
+    fileHandle:close()
+
+    if not skipWrite then
+      fileAttributes.hash = gitobj.writeObject(gitDir, content, "blob")
+    end
+    fileAttributes.name = indexPath
+    updateEntry(index, indexPath, fileAttributes)
+  end
+end
+
+--
 
 local function write32BitNumber(file, number)
   file:write(string.char(shr(number, 24)))
@@ -232,7 +297,7 @@ local function split(str, pattern)
   return parts
 end
 
-local function convertToTree(index)
+local function convertToInMemTree(index)
   local rootTree = {
     type = "tree",
     entries = {},
@@ -292,6 +357,7 @@ function writeConvertedTree(gitdir, tree)
   local hash = gitobj.writeObject(gitdir, gitobj.encodeTreeData(tempTree), "tree")
 
   return {
+    type = "tree",
     name = tree.name,
     mode = tree.mode,
     hash = hash
@@ -299,7 +365,7 @@ function writeConvertedTree(gitdir, tree)
 end
 
 local function writeTreeFromIndex(gitDir, index)
-  local tree = convertToTree(index)
+  local tree = convertToInMemTree(index)
   local writtenTree = writeConvertedTree(gitDir, tree)
   return writtenTree.hash
 end
@@ -309,7 +375,9 @@ return {
   removeEntry = removeEntry,
   updateEntry = updateEntry,
   getEntry = getEntry,
+  addToIndex = addToIndex,
   writeIndex = writeIndex,
   readIndex = readIndex,
+  convertToInMemTree = convertToInMemTree,
   writeTreeFromIndex = writeTreeFromIndex,
 }
