@@ -21,7 +21,7 @@ local function createConfigHandle(configData)
     if not currentSection then
       error("No section selected")
     end
-    return configData[currentSection][key]
+    return (configData[currentSection] or {})[key]
   end
   handle.write = function(filepath)
     local file = filesystem.openWriteProtected(filepath, "w")
@@ -44,6 +44,26 @@ local function createConfig()
   return createConfigHandle({})
 end
 
+local function readConfig(filepath)
+  local file = assert(io.open(filepath, "r"))
+  local configData = {}
+  local currentSection
+  for line in file:lines() do
+    local sectionName = line:match("^%[([^%]]+)%]$")
+    if sectionName then
+      currentSection = sectionName
+      configData[currentSection] = configData[currentSection] or {}
+    else
+      local key, value = line:match("^%s*([^%s=]+)%s*=%s*(.+)$")
+      configData[currentSection][key] = value
+    end
+  end
+  file:close()
+
+  return createConfigHandle(configData)
+end
+
 return {
-  createConfig = createConfig
+  createConfig = createConfig,
+  readConfig = readConfig
 }

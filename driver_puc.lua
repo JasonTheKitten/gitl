@@ -12,6 +12,9 @@ end
 driver.filesystem.codeDir = function()
     return scriptDir
 end
+driver.filesystem.homeDir = function()
+    return os.getenv("HOME")
+end
 driver.filesystem.collapse = function(path)
     local parts = {}
     for part in path:gmatch("[^/]+") do
@@ -133,6 +136,38 @@ driver.filesystem.openWriteProtected = function(path, mode)
         os.execute("chmod " .. oldPerms .. " " .. path)
     end
     return newFile, err
+end
+
+driver.utcTime = function()
+    return os.time()
+end
+driver.edit = function(file, editorOverride)
+    if editorOverride then
+        os.execute(editorOverride .. " " .. file)
+        return
+    end
+
+    local envEditor = os.getenv("EDITOR")
+    local editorSearchList = { "vim", "vi", "nano", "emacs" }
+    if envEditor then
+        table.insert(editorSearchList, 1, envEditor)
+    end
+    for _, editor in ipairs(editorSearchList) do
+        if driver.filesystem.exists(editor) then
+            os.execute(editor .. " " .. file)
+            return
+        end
+
+        local path = os.getenv("PATH") or ""
+        for dir in path:gmatch("[^:]+") do
+            if driver.filesystem.exists(driver.filesystem.combine(dir, editor)) then
+                os.execute(driver.filesystem.combine(dir, editor) .. " " .. file)
+                return
+            end
+        end
+    end
+
+    error("No editor found")
 end
 
 return driver

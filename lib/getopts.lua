@@ -109,6 +109,7 @@ validateOptionsSpec = function(spec)
         options[FLAGLESS_SYMBOL] = {
           key = key,
           collector = value.flag,
+          params = value.params,
           description = value.description
         }
       elseif value.flag then
@@ -129,6 +130,13 @@ validateOptionsSpec = function(spec)
     error("Flagless argument cannot be used with subcommands")
   end
 
+  table.sort(options[FLAGS_SYMBOL], function(a, b)
+    return a.flag[1] < b.flag[1]
+  end)
+  table.sort(options[SUBCOMMANDS_SYMBOL], function(a, b)
+    return a.subcommand[1] < b.subcommand[1]
+  end)
+
   return options
 end
 
@@ -137,6 +145,7 @@ validateFlagSpec = function(spec, key)
     key = key,
     flag = tablify(spec.flag),
     short = tablify(spec.short),
+    params = spec.params,
     description = spec.description or "No description provided",
     multiple = spec.multiple or stop.none
   }
@@ -167,15 +176,17 @@ local function generateHelpMessage(options, includeHeaders)
     for _, flagName in ipairs(flag.short) do
       table.insert(formattedFlags, "-" .. flagName)
     end
-    helpMessage = helpMessage .. "  " .. table.concat(formattedFlags, ", ") .. " - " .. flag.description .. "\n"
+    local paramsStr = flag.params and (" " .. flag.params) or ""
+    helpMessage = helpMessage .. "  " .. table.concat(formattedFlags, ", ") .. paramsStr .. " - " .. flag.description .. "\n"
   end
   if includeHeaders ~= false and #options[SUBCOMMANDS_SYMBOL] > 0 then
     helpMessage = helpMessage .. "Subcommands:\n"
   end
+
   for _, subcommand in ipairs(options[SUBCOMMANDS_SYMBOL]) do
     local flaglessMessage = ""
-    if subcommand.options[FLAGLESS_SYMBOL] and subcommand.options[FLAGLESS_SYMBOL].description then
-      flaglessMessage = " " .. subcommand.options[FLAGLESS_SYMBOL].description
+    if subcommand.options[FLAGLESS_SYMBOL] and subcommand.options[FLAGLESS_SYMBOL].params then
+      flaglessMessage = " " .. subcommand.options[FLAGLESS_SYMBOL].params
     end
     helpMessage = helpMessage .. "  " .. table.concat(subcommand.subcommand, ", ") .. flaglessMessage .. " - " .. subcommand.description .. "\n"
     local childHelpMessage = generateHelpMessage(subcommand.options, false)

@@ -19,9 +19,9 @@ function displayTree(gitDir, hash, recursive, fullName)
   local entries = content.entries
   for _, entry in ipairs(entries) do
     local myEntryName = (fullName == "" and "" or (fullName .. "/")) .. entry.name
-    local myEntryDataType, myEntryData = gitobj.readObject(gitDir, entry.hashHex)
+    local myEntryDataType, myEntryData = gitobj.readObject(gitDir, entry.hash)
     if (myEntryDataType == "tree") or not recursive then
-      print(entry.mode .. " " .. myEntryDataType .. " " .. entry.hashHex .. " " .. myEntryName)
+      print(entry.mode .. " " .. myEntryDataType .. " " .. entry.hash .. " " .. myEntryName)
     elseif myEntryDataType == "tree" and recursive then
       displayTree(gitDir, { myEntryData }, true, myEntryName)
     end

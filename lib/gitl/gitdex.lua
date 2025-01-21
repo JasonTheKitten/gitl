@@ -1,4 +1,5 @@
 local driver = localRequire("driver")
+local gitobj = localRequire("lib/gitl/gitobj")
 local filesystem = driver.filesystem
 
 local function evalOp(code)
@@ -61,6 +62,16 @@ local function insertEntry(index, entry)
     end
   end
   error("Failed to insert entry")
+end
+
+
+local function getOrCreateEntry(index, name, default)
+  local entryIndex = findEntry(index, name)
+  if entryIndex then
+    return index.entries[entryIndex]
+  end
+  insertEntry(index, default)
+  return default
 end
 
 local function removeEntry(index, name)
@@ -210,11 +221,92 @@ local function readIndex(filePath)
   return index
 end
 
+local function split(str, pattern)
+  local parts = {}
+  for part in str:gmatch("([^" .. pattern .. "]+)") do
+    table.insert(parts, part)
+  end
+  return parts
+end
+
+local function convertToTree(index)
+  local rootTree = {
+    type = "tree",
+    entries = {},
+    subtrees = {} -- Convenience, will be dropped upon serialization
+    -- Don't bother with formatted?
+  }
+
+  for _, entry in ipairs(index.entries) do
+    local path = entry.name
+    local currentTree = rootTree
+    local pathParts = split(path, "/")
+    for i = 1, #pathParts - 1 do
+      local part = pathParts[i]
+      local subtree = currentTree.subtrees[part]
+      if not subtree then
+        subtree = {
+          type = "tree",
+          name = part,
+          mode = 16384, -- TODO: Figure out the correct mode
+          entries = {},
+          subtrees = {}
+        }
+        currentTree.subtrees[part] = subtree
+      end
+      currentTree = subtree
+    end
+
+    local part = pathParts[#pathParts]
+    getOrCreateEntry(currentTree, part, {
+      type = "blob",
+      name = part,
+      mode = entry.mode,
+      hash = entry.hash
+    })
+
+    currentTree.hash = entry.hash
+  end
+
+  return rootTree
+end
+
+local writeConvertedTree
+function writeConvertedTree(gitdir, tree)
+  local entries = {}
+  local tempTree = {
+    type = "tree",
+    entries = entries
+  }
+  for _, entry in pairs(tree.entries) do
+    updateEntry(tempTree, entry.name, entry)
+  end
+  for name, subtree in pairs(tree.subtrees) do
+    local finalizedSubtree = writeConvertedTree(gitdir, subtree)
+    updateEntry(tempTree, name, finalizedSubtree)
+  end
+
+  local hash = gitobj.writeObject(gitdir, gitobj.encodeTreeData(tempTree), "tree")
+
+  return {
+    name = tree.name,
+    mode = tree.mode,
+    hash = hash
+  }
+end
+
+local function writeTreeFromIndex(gitDir, index)
+  local tree = convertToTree(index)
+  local writtenTree = writeConvertedTree(gitDir, tree)
+  return writtenTree.hash
+end
+
 return {
   createIndex = createIndex,
   removeEntry = removeEntry,
   updateEntry = updateEntry,
   getEntry = getEntry,
   writeIndex = writeIndex,
-  readIndex = readIndex
+  readIndex = readIndex,
+  writeTreeFromIndex = writeTreeFromIndex,
 }

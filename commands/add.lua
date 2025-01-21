@@ -91,7 +91,7 @@ return {
   subcommand = "add",
   description = "Add file contents to the index",
   options = {
-    arguments = { flag = getopts.flagless.collect(getopts.stop.times(1)), description = "<file>" },
+    arguments = { flag = getopts.flagless.collect(getopts.stop.times(1)), params = "<file>" },
   },
   run = run
 }

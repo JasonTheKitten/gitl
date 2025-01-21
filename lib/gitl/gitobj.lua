@@ -42,6 +42,9 @@ local function writeObject(gitDir, data, type)
   if not filesystem.exists(filesystem.combine(gitDir, "objects", hash:sub(1, 2))) then
     filesystem.makeDir(filesystem.combine(gitDir, "objects", hash:sub(1, 2)))
   end
+  if filesystem.exists(objectPath) then
+    return hash -- Presumably, will be the same content
+  end
   local file = assert(io.open(objectPath, "wb"))
   file:write(compressedData)
   file:close()
@@ -66,22 +69,22 @@ local function decodeTreeData(data)
     local name = data:sub(spaceIndex + 1, nullIndex - 1)
     local hashBinary = data:sub(nullIndex + 1, nullIndex + 20)
 
-    local hashHex = ""
+    local hash = ""
     for j = 1, #hashBinary do
-      hashHex = hashHex .. string.format("%02x", hashBinary:byte(j))
+      hash = hash .. string.format("%02x", hashBinary:byte(j))
     end
 
     table.insert(entries, {
       mode = mode,
       name = name,
-      hashHex = hashHex
+      hash = hash
     })
     i = nullIndex + 21
   end
 
   local formatted = ""
   for _, entry in ipairs(entries) do
-    formatted = formatted .. entry.mode .. " " .. entry.name .. " " .. entry.hashHex .. "\n"
+    formatted = formatted .. entry.mode .. " " .. entry.name .. " " .. entry.hash .. "\n"
   end
 
   return {
@@ -100,6 +103,32 @@ local function decodeObjectData(data, type)
   error("Unsupported object type")
 end
 
+local function encodeBlobData(data)
+  return data
+end
+
+local function encodeTreeData(data)
+  local encoded = ""
+  for _, entry in ipairs(data.entries) do
+    local hashBinary = ""
+    for i = 1, #entry.hash, 2 do
+      hashBinary = hashBinary .. string.char(tonumber(entry.hash:sub(i, i + 1), 16))
+    end
+    encoded = encoded .. entry.mode .. " " .. entry.name .. "\0" .. hashBinary
+  end
+
+  return encoded
+end
+
+local function encodeObjectData(data, type)
+  if type == "blob" then
+    return encodeBlobData(data)
+  elseif type == "tree" then
+    return encodeTreeData(data)
+  end
+  error("Unsupported object type")
+end
+
 return {
   decompressObject = decompressObject,
   compressObject = compressObject,
@@ -107,5 +136,8 @@ return {
   writeObject = writeObject,
   decodeBlobData = decodeBlobData,
   decodeTreeData = decodeTreeData,
-  decodeObjectData = decodeObjectData
+  decodeObjectData = decodeObjectData,
+  encodeBlobData = encodeBlobData,
+  encodeTreeData = encodeTreeData,
+  encodeObjectData = encodeObjectData
 }
