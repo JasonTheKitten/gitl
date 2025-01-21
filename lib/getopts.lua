@@ -108,7 +108,8 @@ validateOptionsSpec = function(spec)
         end
         options[FLAGLESS_SYMBOL] = {
           key = key,
-          collector = value.flag
+          collector = value.flag,
+          description = value.description
         }
       elseif value.flag then
         local flag = validateFlagSpec(value, key)
@@ -153,9 +154,9 @@ local function options(spec)
   return validateOptionsSpec(spec)
 end
 
-local function generateHelpMessage(options)
+local function generateHelpMessage(options, includeHeaders)
   local helpMessage = ""
-  if #options[FLAGS_SYMBOL] > 0 then
+  if includeHeaders ~= false and #options[FLAGS_SYMBOL] > 0 then
     helpMessage = helpMessage .. "Flags:\n"
   end
   for _, flag in ipairs(options[FLAGS_SYMBOL]) do
@@ -168,12 +169,20 @@ local function generateHelpMessage(options)
     end
     helpMessage = helpMessage .. "  " .. table.concat(formattedFlags, ", ") .. " - " .. flag.description .. "\n"
   end
-  if #options[SUBCOMMANDS_SYMBOL] > 0 then
+  if includeHeaders ~= false and #options[SUBCOMMANDS_SYMBOL] > 0 then
     helpMessage = helpMessage .. "Subcommands:\n"
   end
   for _, subcommand in ipairs(options[SUBCOMMANDS_SYMBOL]) do
-    helpMessage = helpMessage .. "  " .. table.concat(subcommand.subcommand, ", ") .. " - " .. subcommand.description .. "\n"
-    helpMessage = helpMessage .. generateHelpMessage(subcommand.options)
+    local flaglessMessage = ""
+    if subcommand.options[FLAGLESS_SYMBOL] and subcommand.options[FLAGLESS_SYMBOL].description then
+      flaglessMessage = " " .. subcommand.options[FLAGLESS_SYMBOL].description
+    end
+    helpMessage = helpMessage .. "  " .. table.concat(subcommand.subcommand, ", ") .. flaglessMessage .. " - " .. subcommand.description .. "\n"
+    local childHelpMessage = generateHelpMessage(subcommand.options, false)
+    if childHelpMessage ~= "" then
+      local indentedMessage = "  " .. childHelpMessage:gsub("\n", "\n  ") .. "\n"
+      helpMessage = helpMessage .. indentedMessage
+    end
   end
   return helpMessage:sub(1, -2)
 end

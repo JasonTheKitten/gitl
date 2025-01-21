@@ -65,6 +65,9 @@ end
 if ok and (not results.command) and not (results.help) then
   print("gitl requires a subcommand!")
 end
+if results.help and not results.command then
+  print("Welcome to gitl, a git-based VCS for ComputerCraft, OpenComputers, and PUC Lua!")
+end
 if not ok or results.help or not results.command then
   print(getopts.generateHelpMessage(options))
 end
