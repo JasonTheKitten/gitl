@@ -1,6 +1,5 @@
 local driver = localRequire "driver"
 local getopts = localRequire("lib/getopts")
-local gitobj = localRequire("lib/gitl/gitobj")
 local gitrepo = localRequire("lib/gitl/gitrepo")
 local gitdex = localRequire("lib/gitl/gitdex")
 local gitignore = localRequire("lib/gitl/gitignore")
@@ -15,7 +14,7 @@ local function run(arguments)
     error("No files specified")
   end
 
-  local filter = gitignore.createFileFilter(gitDir)
+  local filter = gitignore.createFileFilter(projectDir)
 
   local indexFile = filesystem.combine(gitDir, "index")
   local index = filesystem.exists(indexFile) and gitdex.readIndex(indexFile) or gitdex.createIndex()

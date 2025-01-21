@@ -58,31 +58,18 @@ local function insertEntry(index, entry)
   while startIndex <= endIndex do
     local middleIndex = math.floor((startIndex + endIndex) / 2)
     local middleEntry = index.entries[middleIndex]
-    local prevEntry = index.entries[middleIndex - 1]
-    local nextEntry = index.entries[middleIndex + 1]
-
     local middleEntryName = formatEntryName(middleEntry)
+
     if middleEntryName == entryName then
       table.insert(index.entries, middleIndex, entry)
       return
-    elseif (middleEntryName < entryName) and nextEntry and (formatEntryName(nextEntry) > entryName) then
-      table.insert(index.entries, middleIndex + 1, entry)
-      return
-    elseif (middleEntryName > entryName) and prevEntry and (formatEntryName(prevEntry) < entryName) then
-      table.insert(index.entries, middleIndex, entry)
-      return
-    elseif middleEntryName then
+    elseif middleEntryName < entryName then
       startIndex = middleIndex + 1
     else
       endIndex = middleIndex - 1
     end
   end
-  print(entryName)
-  print("Existing entries:")
-  for _, entry in ipairs(index.entries) do
-    print(formatEntryName(entry))
-  end
-  error("Failed to insert entry")
+  table.insert(index.entries, startIndex, entry)
 end
 
 
@@ -141,6 +128,22 @@ local function compareEntries(entry1, entry2)
   return true
 end
 
+-- It seems that git doesn't retain the actual Unix perms,
+-- and instead chooses one of a few options based on the file's mode
+local function isX(str, index)
+  return str:sub(index, index) == "x"
+end
+local function selectGitPerm(str)
+  if str == nil then
+    return 420
+  end
+
+  if isX(str, 3) or isX(str, 6) or isX(str, 9) then
+    return 493
+  end
+
+  return 420
+end
 
 -- TODO: Also detect removals
 local function addToIndex(index, path, indexPath, filter, gitDir, skipWrite)
@@ -154,7 +157,7 @@ local function addToIndex(index, path, indexPath, filter, gitDir, skipWrite)
     -- Ignore
   elseif filesystem.isDir(path) then
     for _, file in ipairs(filesystem.list(path)) do
-      addToIndex(index, filesystem.combine(path, file), filesystem.combine(indexPath, file), filter, gitDir)
+      addToIndex(index, filesystem.combine(path, file), filesystem.combine(indexPath, file), filter, gitDir, skipWrite)
     end
   elseif filesystem.isFile(path) and not compareEntries(existingEntry, filesystem.attributes(path)) then
     local fileAttributes = filesystem.attributes(path)
@@ -162,6 +165,10 @@ local function addToIndex(index, path, indexPath, filter, gitDir, skipWrite)
     local fileHandle = assert(io.open(path, "rb"))
     local content = fileHandle:read("*a")
     fileHandle:close()
+
+    local permNum = selectGitPerm(fileAttributes.fmode)
+    fileAttributes.fmode = nil
+    fileAttributes.mode = shl(8, 12) + permNum
 
     if not skipWrite then
       fileAttributes.hash = gitobj.writeObject(gitDir, content, "blob")

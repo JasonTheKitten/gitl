@@ -9,14 +9,12 @@ local filesystem = driver.filesystem
 local INDEX_ENTRIES_TO_COMPARE = {
   "ctime", "ctimeNanos", "mtime", "mtimeNanos", "dev", "ino", "mode", "uid", "gid", "size"
 }
-local INDEX_ENTRIES_TO_COMPARE_DEFAULTS = {
-  nil, 0, nil, 0, 0, 0, 33188, 0, 0, nil
-}
+
 local function compareIndexEntries(entry1, entry2)
   for i, key in ipairs(INDEX_ENTRIES_TO_COMPARE) do
-    local value1 = entry1[key] or INDEX_ENTRIES_TO_COMPARE_DEFAULTS[i]
-    local value2 = entry2[key] or INDEX_ENTRIES_TO_COMPARE_DEFAULTS[i]
-    if value1 ~= value2 then
+    local value1 = entry1[key]
+    local value2 = entry2[key]
+    if (value1 ~= value2) and (value1 ~= nil) and (value2 ~= nil) then
       return false
     end
   end
@@ -60,7 +58,7 @@ local function diffIndexes(index1, index2, comparisonFunc)
 end
 
 local function compareWorkingWithIndex(gitDir, projectDir, index, filter)
-  filter = filter or gitignore.createFileFilter(gitDir)
+  filter = filter or gitignore.createFileFilter(projectDir)
 
   local workingIndex = gitdex.createIndex()
   gitdex.addToIndex(workingIndex, projectDir, "", filter, gitDir, true)
@@ -77,7 +75,7 @@ local function addTreeToPsuedoIndex(gitDir, psuedoIndex, treeHash, prefix)
 
   for _, entry in ipairs(contentData.entries) do
     local path = filesystem.combine(prefix, entry.name)
-    if entry.mode == "040000" then -- TODO: Is this check enough?
+    if tonumber(entry.mode) == tonumber("040000") then -- TODO: Is this check enough?
       addTreeToPsuedoIndex(gitDir, psuedoIndex, entry.hash, path)
     else
       local indexEntry = {

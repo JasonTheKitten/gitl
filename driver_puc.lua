@@ -1,4 +1,5 @@
 local lfs = require "lfs"
+local posix = require "posix"
 
 local scriptPath = debug.getinfo(1, "S").source:sub(2)
 local scriptDir = scriptPath:match("(.*/)") or "./"
@@ -78,12 +79,35 @@ end
 driver.filesystem.isDir = function(path)
     return lfs.attributes(path, "mode") == "directory"
 end
+
+local function getNanoTime(path)
+    local statPHandle = io.popen("stat " .. path)
+    if not statPHandle then return end
+    local statOutput = statPHandle:read("*a")
+    statPHandle:close()
+
+    local ctimeNs = statOutput:match("Change: ([^\n]+)\n")
+    if ctimeNs then
+        ctimeNs = tonumber(ctimeNs:match("%.(%d+) "))
+    end
+
+    local mtimeNs = statOutput:match("Modify: ([^\n]+)\n")
+    if mtimeNs then
+        mtimeNs = tonumber(mtimeNs:match("%.(%d+) "))
+    end
+
+    return ctimeNs, mtimeNs
+end
 driver.filesystem.attributes = function(path)
-    local rawAttributes = lfs.attributes(path)
+    local ctimeNanos, mtimeNanos = getNanoTime(path)
+    local rawAttributes = posix.stat(path)
     -- TODO: File perms
     return {
-        ctime = rawAttributes.change, -- TODO: Check if this is correct
-        mtime = rawAttributes.modification,
+        ctime = rawAttributes.ctime,
+        ctimeNanos = ctimeNanos,
+        mtime = rawAttributes.mtime,
+        mtimeNanos = mtimeNanos,
+        fmode = rawAttributes.mode,
         dev = rawAttributes.dev,
         ino = rawAttributes.ino,
         uid = rawAttributes.uid,

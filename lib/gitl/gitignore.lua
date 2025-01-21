@@ -63,6 +63,8 @@ local function ruleMatches(rule, filename, isDirectory)
       return false
     end
   end
+
+  return true
 end
 
 local function isIgnored(gitIgnoreLines, filename, isDirectory)
@@ -80,9 +82,9 @@ local function isIgnored(gitIgnoreLines, filename, isDirectory)
   return ignored
 end
 
-local function createFileFilter(gitDir)
+local function createFileFilter(projectDir)
   local gitIgnoreLines = {}
-  local gitIgnorePath = filesystem.combine(gitDir, ".gitignore")
+  local gitIgnorePath = filesystem.combine(projectDir, ".gitignore")
   if filesystem.exists(gitIgnorePath) then
     local gitIgnoreContent = readAll(gitIgnorePath)
     for line in gitIgnoreContent:gmatch("([^\n]+)") do
