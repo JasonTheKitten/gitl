@@ -113,6 +113,16 @@ local function getEntry(index, name)
   end
 end
 
+local function reduceEntries(index, filter)
+  local newEntries = {}
+  for _, entry in ipairs(index.entries) do
+    if filter(entry) then
+      table.insert(newEntries, entry)
+    end
+  end
+  index.entries = newEntries
+end
+
 --
 
 local function compareEntries(entry1, entry2)
@@ -145,8 +155,8 @@ local function selectGitPerm(str)
   return 420
 end
 
--- TODO: Also detect removals
-local function addToIndex(index, path, indexPath, filter, gitDir, skipWrite)
+local addToIndex
+addToIndex = function(index, path, indexPath, filter, gitDir, skipWrite)
   if indexPath:sub(1, 1) == "/" then
     indexPath = indexPath:sub(2)
   end
@@ -175,7 +185,29 @@ local function addToIndex(index, path, indexPath, filter, gitDir, skipWrite)
     end
     fileAttributes.name = indexPath
     updateEntry(index, indexPath, fileAttributes)
+  elseif not filesystem.exists(path) then
+    removeEntry(index, indexPath)
   end
+end
+
+local clearOldIndexEntries = function(index, path, indexPath, filter)
+  if indexPath:sub(1, 1) == "/" then
+    indexPath = indexPath:sub(2)
+  end
+  path = filesystem.collapse(path)
+  if indexPath:sub(-1) == "/" then
+    indexPath = indexPath:sub(1, -2)
+  end
+
+  reduceEntries(index, function(entry)
+    if not filter(entry.name) then
+      return true
+    end
+    if (entry.name ~= indexPath) and (entry.name:sub(1, #indexPath + 1) ~= (indexPath .. "/")) and indexPath ~= "" then
+      return true
+    end
+    return filesystem.exists(filesystem.combine(path, entry.name))
+  end)
 end
 
 --
@@ -383,6 +415,7 @@ return {
   updateEntry = updateEntry,
   getEntry = getEntry,
   addToIndex = addToIndex,
+  clearOldIndexEntries = clearOldIndexEntries,
   writeIndex = writeIndex,
   readIndex = readIndex,
   convertToInMemTree = convertToInMemTree,

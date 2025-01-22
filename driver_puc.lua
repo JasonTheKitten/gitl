@@ -135,6 +135,10 @@ driver.filesystem.unprefix = function(basePath, otherPath)
     end
 end
 
+driver.filesystem.rm = function(path)
+    os.remove(path)
+end
+
 local function symbolicPermsToNumeric(perms)
     -- ‘rw-r--r--’ -> 0644
     local numericPerms = 0

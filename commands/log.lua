@@ -27,7 +27,7 @@ local function checkFileVersion(gitdir, tree, hash, file)
     if entry.name == firstPart then
       local isDirectory = tonumber(entry.mode) == 40000
       if isDirectory and rest then
-        local obj = gitobj.readAndDecode(gitdir, entry.hash, "tree")
+        local obj = gitobj.readAndDecodeObject(gitdir, entry.hash, "tree")
         return checkFileVersion(gitdir, obj, entry.hash, rest:sub(2))
       elseif not rest then
         return entry.hash
@@ -41,7 +41,7 @@ local function detectCommits(gitDir, allFiles)
   local commitRefList = {}
   while currentRef do
     table.insert(commitRefList, currentRef)
-    local commit = gitobj.readAndDecode(gitDir, currentRef, "commit")
+    local commit = gitobj.readAndDecodeObject(gitDir, currentRef, "commit")
     currentRef = commit.parents[1]
   end
 
@@ -49,8 +49,8 @@ local function detectCommits(gitDir, allFiles)
   local lastVersions = {}
   for i = #commitRefList, 1, -1 do
     local commitRef = commitRefList[i]
-    local commit = gitobj.readAndDecode(gitDir, commitRef, "commit")
-    local tree = gitobj.readAndDecode(gitDir, commit.tree, "tree")
+    local commit = gitobj.readAndDecodeObject(gitDir, commitRef, "commit")
+    local tree = gitobj.readAndDecodeObject(gitDir, commit.tree, "tree")
     local insertCommit = false
     for _, file in ipairs(allFiles) do
       local version = checkFileVersion(gitDir, tree, commit.tree, file)

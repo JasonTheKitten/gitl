@@ -1,4 +1,4 @@
-local driver = localRequire "driver"
+local driver = localRequire("driver")
 local gitrepo = localRequire("lib/gitl/gitrepo")
 local gitref = localRequire("lib/gitl/gitref")
 local filesystem = driver.filesystem
@@ -16,7 +16,7 @@ local function addExisting(gitRepo, allBranches)
 
   if gitref.isDetachedHead(gitRepo) then
     local hash = gitref.getLastCommitHash(gitRepo):sub(1, 7)
-    table.insert(allBranches, { true, "(HEAD detached at" .. hash .. ")" })
+    table.insert(allBranches, { true, "(HEAD detached at " .. hash .. ")" })
   end
 end
 

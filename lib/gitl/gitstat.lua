@@ -123,6 +123,7 @@ local function stat(gitDir, projectDir)
 end
 
 return {
+  diffIndexes = diffIndexes,
   compareWorkingWithIndex = compareWorkingWithIndex,
   compareTreeWithIndex = compareTreeWithIndex,
   stat = stat

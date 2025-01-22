@@ -51,6 +51,11 @@ local function writeObject(gitDir, data, type)
   return hash
 end
 
+local function objectExists(gitDir, hash)
+  local objectPath = filesystem.combine(gitDir, "objects", hash:sub(1, 2), hash:sub(3))
+  return filesystem.exists(objectPath)
+end
+
 local function decodeBlobData(data)
   return {
     type = "blob",
@@ -135,7 +140,7 @@ local function decodeObjectData(data, type)
   error("Unsupported object type")
 end
 
-local function readAndDecode(gitDir, hash, expectedType)
+local function readAndDecodeObject(gitDir, hash, expectedType)
   local type, data = readObject(gitDir, hash)
   if expectedType and type ~= expectedType then
     error("Unexpected object type")
@@ -190,11 +195,12 @@ return {
   compressObject = compressObject,
   readObject = readObject,
   writeObject = writeObject,
+  objectExists = objectExists,
   decodeBlobData = decodeBlobData,
   decodeTreeData = decodeTreeData,
   decodeCommitData = decodeCommitData,
   decodeObjectData = decodeObjectData,
-  readAndDecode = readAndDecode,
+  readAndDecodeObject = readAndDecodeObject,
   encodeBlobData = encodeBlobData,
   encodeTreeData = encodeTreeData,
   encodeCommitData = encodeCommitData,

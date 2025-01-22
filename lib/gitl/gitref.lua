@@ -23,13 +23,13 @@ end
 local function getLastCommitHash(gitdir)
   local headPath = filesystem.combine(gitdir, "HEAD")
   if not filesystem.exists(headPath) then return end
-  local headContent = readAll(headPath)
+  local headContent = readAll(headPath):match("([^\n\r]+)")
 
   if headContent:sub(1, 5) ~= "ref: " then
-    return headContent:match("([^\n]+)") -- Hopefully a valid commit hash
+    return headContent -- Hopefully a valid commit hash
   end
 
-  local refPath = filesystem.combine(gitdir, headContent:sub(6, -2))
+  local refPath = filesystem.combine(gitdir, headContent:sub(6, -1))
   if not filesystem.exists(refPath) then return end
   return readAll(refPath):match("([^\n]+)")
 end

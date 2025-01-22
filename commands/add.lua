@@ -15,7 +15,6 @@ local function run(arguments)
   end
 
   local filter = gitignore.createFileFilter(projectDir)
-
   local indexFile = filesystem.combine(gitDir, "index")
   local index = filesystem.exists(indexFile) and gitdex.readIndex(indexFile) or gitdex.createIndex()
 
@@ -30,6 +29,7 @@ local function run(arguments)
         filesystem.unprefix(projectDir, filesystem.workingDir()),
         file))
     gitdex.addToIndex(index, path, indexPath, filter, gitDir)
+    gitdex.clearOldIndexEntries(index, path, indexPath, filter)
   end
 
   gitdex.writeIndex(index, indexFile)
