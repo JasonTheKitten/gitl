@@ -14,6 +14,12 @@ local function writeAll(file, content)
   f:close()
 end
 
+local function getRawHead(gitdir)
+  local headPath = filesystem.combine(gitdir, "HEAD")
+  if not filesystem.exists(headPath) then return end
+  return readAll(headPath):match("([^\n]+)")
+end
+
 local function getLastCommitHash(gitdir)
   local headPath = filesystem.combine(gitdir, "HEAD")
   if not filesystem.exists(headPath) then return end
@@ -57,8 +63,18 @@ local function formatCurrentCommitRef(gitdir)
   return "[" .. refName .. " " .. commitHash .. "]"
 end
 
+local function isDetachedHead(gitdir)
+  local headPath = filesystem.combine(gitdir, "HEAD")
+  if not filesystem.exists(headPath) then return end
+  local headContent = readAll(headPath)
+
+  return headContent:sub(1, 5) ~= "ref: "
+end
+
 return {
+  getRawHead = getRawHead,
   getLastCommitHash = getLastCommitHash,
   setLastCommitHash = setLastCommitHash,
-  formatCurrentCommitRef = formatCurrentCommitRef
+  formatCurrentCommitRef = formatCurrentCommitRef,
+  isDetachedHead = isDetachedHead
 }
