@@ -1,18 +1,6 @@
 local driver = localRequire("driver")
-local filesystem = driver.filesystem
-
-local function readAll(file)
-  local f = assert(io.open(file, "r"))
-  local content = f:read("*a")
-  f:close()
-  return content
-end
-
-local function writeAll(file, content)
-  local f = assert(io.open(file, "w"))
-  f:write(content)
-  f:close()
-end
+local utils = localRequire("lib/utils")
+local filesystem, readAll, writeAll = driver.filesystem, utils.readAll, utils.writeAll
 
 local function getRawHead(gitdir)
   local headPath = filesystem.combine(gitdir, "HEAD")

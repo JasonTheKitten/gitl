@@ -1,21 +1,10 @@
 local driver = localRequire("driver")
+local utils = localRequire("lib/utils")
 local gitobj = localRequire("lib/gitl/gitobj")
 local filesystem = driver.filesystem
-
-local function evalOp(code)
-  return assert(load("return function(a, b) return a " .. code .. " b end"))()
-end
-
-local shl, shr, band
-if bit32 then
-  shl = bit32.lshift
-  shr = bit32.rshift
-  band = bit32.band
-else
-  shl = evalOp("<<")
-  shr = evalOp(">>")
-  band = evalOp("&")
-end
+local read32BitNumber, write32BitNumber, read16BitNumber, write16BitNumber, read20ByteHash, write20ByteHash =
+  utils.read32BitNumber, utils.write32BitNumber, utils.read16BitNumber,
+  utils.write16BitNumber, utils.read20ByteHash, utils.write20ByteHash
 
 local function createIndex()
   local index = {}
@@ -178,7 +167,7 @@ addToIndex = function(index, path, indexPath, filter, gitDir, skipWrite)
 
     local permNum = selectGitPerm(fileAttributes.fmode)
     fileAttributes.fmode = nil
-    fileAttributes.mode = shl(8, 12) + permNum
+    fileAttributes.mode = utils.shl(8, 12) + permNum
 
     if not skipWrite then
       fileAttributes.hash = gitobj.writeObject(gitDir, content, "blob")
@@ -211,24 +200,6 @@ local clearOldIndexEntries = function(index, path, indexPath, filter)
 end
 
 --
-
-local function write32BitNumber(file, number)
-  file:write(string.char(shr(number, 24)))
-  file:write(string.char(band(shr(number, 16), 0xFF)))
-  file:write(string.char(band(shr(number, 8), 0xFF)))
-  file:write(string.char(band(number, 0xFF)))
-end
-
-local function write16BitNumber(file, number)
-  file:write(string.char(shr(number, 8)))
-  file:write(string.char(band(number, 0xFF)))
-end
-
-local function write20ByteHash(file, hash)
-  for i = 1, 40, 2 do
-    file:write(string.char(tonumber(hash:sub(i, i + 1), 16)))
-  end
-end
 
 local function writeIndex(index, filePath)
   local file = filesystem.openWriteProtected(filePath, "wb")
@@ -266,25 +237,6 @@ local function writeIndex(index, filePath)
     end
   end
   file:close()
-end
-
-local function read32BitNumber(file)
-  return shl(file:read(1):byte(), 24) +
-    shl(file:read(1):byte(), 16) +
-    shl(file:read(1):byte(), 8) +
-    file:read(1):byte()
-end
-
-local function read16BitNumber(file)
-  return shl(file:read(1):byte(), 8) + file:read(1):byte()
-end
-
-local function read20ByteHash(file)
-  local hash = ""
-  for i = 1, 20 do
-    hash = hash .. string.format("%02x", file:read(1):byte())
-  end
-  return hash
 end
 
 local function readIndex(filePath)

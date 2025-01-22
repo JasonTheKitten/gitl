@@ -1,4 +1,5 @@
 local lfs = require "lfs"
+local httpRequest = require "http.request"
 
 local driver = {}
 
@@ -134,7 +135,14 @@ driver.filesystem.unprefix = function(basePath, otherPath)
     end
 end
 
-driver.filesystem.rm = function(path)
+driver.filesystem.rm = function(path, recursive)
+    if recursive and driver.filesystem.isDir(path) then
+        for file in lfs.dir(path) do
+            if file ~= "." and file ~= ".." then
+                driver.filesystem.rm(driver.filesystem.combine(path, file), true)
+            end
+        end
+    end
     os.remove(path)
 end
 
@@ -180,6 +188,40 @@ driver.filesystem.openWriteProtected = function(path, mode)
         os.execute("chmod " .. oldPerms .. " " .. path)
     end
     return newFile, err
+end
+
+driver.http = {}
+driver.http.get = function(url, headers)
+    local req = httpRequest.new_from_uri(url)
+    req.headers:upsert(":method", "GET")
+    for k, v in pairs(headers) do
+        req.headers:upsert(k, v)
+    end
+    local respHeaders, stream = assert(req:go())
+    local body = assert(stream:get_body_as_file())
+    return {
+        headers = respHeaders,
+        status = respHeaders:get(":status"),
+        body = body,
+    }
+end
+driver.http.post = function(url, body, headers)
+    local req = httpRequest.new_from_uri(url)
+    req.headers:upsert(":method", "POST")
+    for k, v in pairs(headers) do
+        req.headers:upsert(k, v)
+    end
+    req:set_body(body)
+    local respHeaders, stream = assert(req:go())
+    local respBody = assert(stream:get_body_as_file())
+    for k, v in pairs(respHeaders) do
+        print(k, v)
+    end
+    return {
+        headers = respHeaders,
+        status = respHeaders:get(":status"),
+        body = respBody,
+    }
 end
 
 driver.timeAndOffset = function()

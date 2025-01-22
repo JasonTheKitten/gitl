@@ -1,18 +1,13 @@
 local driver = localRequire("driver")
+local utils = localRequire("lib/utils")
 local gitref = localRequire("lib/gitl/gitref")
 local gitstat = localRequire("lib/gitl/gitstat")
 local gitobj = localRequire("lib/gitl/gitobj")
 local gitdex = localRequire("lib/gitl/gitdex")
 local gitignore = localRequire("lib/gitl/gitignore")
-local filesystem = driver.filesystem
+local filesystem, writeAll = driver.filesystem, utils.writeAll
 
 -- TODO: Track reflogs (branch command too)
-
-local function writeAll(file, content)
-  local f = assert(io.open(file, "w"))
-  f:write(content)
-  f:close()
-end
 
 local function switchToNewBranch(gitDir, branch)
   local branchesDir = filesystem.combine(gitDir, "refs/heads")

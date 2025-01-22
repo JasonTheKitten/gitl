@@ -1,21 +1,15 @@
 local driver = localRequire("driver")
+local utils = localRequire("lib/utils")
 local getopts = localRequire("lib/getopts")
 local gitrepo = localRequire("lib/gitl/gitrepo")
 local gitstat = localRequire("lib/gitl/gitstat")
 local gitobj = localRequire("lib/gitl/gitobj")
 local gitcheckout = localRequire("lib/gitl/gitcheckout")
-local filesystem = driver.filesystem
+local filesystem, readAll = driver.filesystem, utils.readAll
 
 local DEFAULT_OVERWITE_ERROR_MESSAGE =
   "You have local changes that could be overwritten by the checkout!\n"
   .. "Please commit your changes or stash them before you switch branches."
-
-local function readAll(file)
-  local f = assert(io.open(file, "r"))
-  local content = f:read("*a")
-  f:close()
-  return content
-end
 
 -- TODO: Better, more lenient conflict handling
 -- Also, what if new branch would overwrite a gitignore'd file?

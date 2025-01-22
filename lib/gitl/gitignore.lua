@@ -1,5 +1,6 @@
 local driver = localRequire("driver")
-local filesystem = driver.filesystem
+local utils = localRequire("lib/utils")
+local filesystem, readAll = driver.filesystem, utils.readAll
 
 local PROHIBITED_FILES = {
   ["."] = true,
@@ -13,13 +14,6 @@ local function splitPath(path)
     table.insert(parts, part)
   end
   return parts
-end
-
-local function readAll(file)
-  local f = assert(io.open(file, "r"))
-  local content = f:read("*a")
-  f:close()
-  return content
 end
 
 -- TODO: Better matching for **, also ? and group - may need a FSM?

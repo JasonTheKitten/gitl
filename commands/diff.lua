@@ -1,14 +1,8 @@
 local driver = localRequire("driver")
+local utils = localRequire("lib/utils")
 local getopts = localRequire("lib/getopts")
 local gitdiff = localRequire("lib/gitl/gitdiff")
-local filesystem = driver.filesystem
-
-local function readAll(file)
-  local handle = assert(io.open(file, "r"))
-  local contents = handle:read("*a")
-  handle:close()
-  return contents
-end
+local filesystem, readAll = driver.filesystem, utils.readAll
 
 local function noIndexDiff(arguments)
   local files = arguments.options.arguments
