@@ -94,18 +94,20 @@ local function decodeTreeData(data)
   }
 end
 
+-- TODO: Support multiple authors and commiters
 local function decodeCommitData(data)
   local tree = data:match("tree ([^\n]+)")
   local parents = {}
   for parent in data:gmatch("parent ([^\n]+)") do
     table.insert(parents, parent)
   end
-  local author = data:match("author ([^\n]+)")
-  local authorTime = tonumber(author:match("([^\n]+)"))
-  local authorTimezoneOffset = author:match("([^\n]+)$")
-  local committer = data:match("committer ([^\n]+)")
-  local committerTime = tonumber(committer:match("([^\n]+)"))
-  local committerTimezoneOffset = committer:match("([^\n]+)$")
+  
+  local author = data:match("author ([^\n]+)>") .. ">"
+  local authorTime = tonumber(data:match("author [^>]+> (%d+)"))
+  local authorTimezoneOffset = data:match("author [^>]+> %d+ ([+-]%d+)")
+  local committer = data:match("committer ([^\n]+)>") .. ">"
+  local committerTime = tonumber(data:match("committer [^>]+> (%d+)"))
+  local committerTimezoneOffset = data:match("committer [^>]+> %d+ ([+-]%d+)")
   local message = data:match("\n\n(.+)$")
 
   return {
@@ -131,6 +133,14 @@ local function decodeObjectData(data, type)
     return decodeCommitData(data)
   end
   error("Unsupported object type")
+end
+
+local function readAndDecode(gitDir, hash, expectedType)
+  local type, data = readObject(gitDir, hash)
+  if expectedType and type ~= expectedType then
+    error("Unexpected object type")
+  end
+  return decodeObjectData(data, type)
 end
 
 local function encodeBlobData(data)
@@ -184,6 +194,7 @@ return {
   decodeTreeData = decodeTreeData,
   decodeCommitData = decodeCommitData,
   decodeObjectData = decodeObjectData,
+  readAndDecode = readAndDecode,
   encodeBlobData = encodeBlobData,
   encodeTreeData = encodeTreeData,
   encodeCommitData = encodeCommitData,

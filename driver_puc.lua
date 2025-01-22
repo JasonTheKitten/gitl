@@ -195,6 +195,7 @@ driver.timeAndOffset = function()
 
     return timestamp, timezoneOffsetStr
 end
+
 driver.edit = function(file, editorOverride)
     if editorOverride then
         os.execute(editorOverride .. " " .. file)
@@ -222,6 +223,18 @@ driver.edit = function(file, editorOverride)
     end
 
     error("No editor found")
+end
+
+driver.displayLongMessage = function(message)
+    local pager = os.getenv("PAGER") or "/usr/bin/less"
+    local pagerBin = driver.filesystem.combine("/usr/bin", pager)
+    if not (driver.filesystem.exists(pager) or driver.filesystem.exists(pagerBin)) then
+        print(message)
+        return
+    end
+    local pagerHandle = assert(io.popen(pager, "w"))
+    pagerHandle:write(message)
+    pagerHandle:close()
 end
 
 return driver

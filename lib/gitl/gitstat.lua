@@ -75,7 +75,7 @@ local function addTreeToPsuedoIndex(gitDir, psuedoIndex, treeHash, prefix)
 
   for _, entry in ipairs(contentData.entries) do
     local path = filesystem.combine(prefix, entry.name)
-    if tonumber(entry.mode) == tonumber("040000") then -- TODO: Is this check enough?
+    if tonumber(entry.mode) == 40000 then -- TODO: Is this check enough?
       addTreeToPsuedoIndex(gitDir, psuedoIndex, entry.hash, path)
     else
       local indexEntry = {

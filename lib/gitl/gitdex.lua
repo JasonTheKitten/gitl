@@ -323,7 +323,7 @@ local function convertToInMemTree(index)
         subtree = {
           type = "tree",
           name = part,
-          mode = 040000,
+          mode = 40000,
           entries = {},
           subtrees = {}
         }
