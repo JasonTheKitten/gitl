@@ -1,4 +1,4 @@
-local common = localRequire "third_party/sha1/common"
+local common = localRequire("third_party/sha1/common")
 
 local sha1 = {
    -- Meta fields retained for compatibility.

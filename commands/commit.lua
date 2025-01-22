@@ -1,10 +1,10 @@
-local driver = localRequire "driver"
-local getopts = localRequire "lib/getopts"
-local gitrepo = localRequire "lib/gitl/gitrepo"
-local gitobj = localRequire "lib/gitl/gitobj"
-local gitdex = localRequire "lib/gitl/gitdex"
-local gitref = localRequire "lib/gitl/gitref"
-local gitconfig = localRequire "lib/gitl/gitconfig"
+local driver = localRequire("driver")
+local getopts = localRequire("lib/getopts")
+local gitrepo = localRequire("lib/gitl/gitrepo")
+local gitobj = localRequire("lib/gitl/gitobj")
+local gitdex = localRequire("lib/gitl/gitdex")
+local gitref = localRequire("lib/gitl/gitref")
+local gitconfig = localRequire("lib/gitl/gitconfig")
 local filesystem = driver.filesystem
 
 local DEFAULT_EDIT_MESSAGE = "\n# Please enter the commit message for your changes. Lines starting\n"

@@ -1,5 +1,5 @@
-local driver = localRequire "driver"
-local configTool = localRequire "lib/configtool"
+local driver = localRequire("driver")
+local configFile = localRequire("lib/gitl/gitconfigfile")
 local filesystem = driver.filesystem
 
 local function tryCreateFile(gitDir, name, content)
@@ -17,7 +17,7 @@ local function createHeadFile(gitDir, defaultBranchName)
 end
 
 local function createInitConfig(gitDir)
-  local config = configTool.createConfig()
+  local config = configFile.createConfig()
   config.section("core")
     .set("repositoryformatversion", 0)
     .set("filemode", false)

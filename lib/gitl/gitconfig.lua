@@ -1,5 +1,5 @@
 local driver = localRequire("driver")
-local configTool = localRequire("lib/configtool")
+local configFile = localRequire("lib/gitl/gitconfigfile")
 local filesystem = driver.filesystem
 
 local function getConfigValue(gitdir, key, default)
@@ -7,14 +7,14 @@ local function getConfigValue(gitdir, key, default)
 
   local configPath = filesystem.combine(gitdir, "config")
   if filesystem.exists(configPath) then
-    local config = configTool.readConfig(configPath)
+    local config = configFile.readConfig(configPath)
     local value = config.section(firstPart).get(secondPart)
     if value then return value end
   end
 
   local globalConfigPath = filesystem.combine(driver.filesystem.homeDir(), ".gitconfig")
   if filesystem.exists(globalConfigPath) then
-    local globalConfig = configTool.readConfig(globalConfigPath)
+    local globalConfig = configFile.readConfig(globalConfigPath)
     local value = globalConfig.section(firstPart).get(secondPart)
     if value then return value end
   end

@@ -1,4 +1,4 @@
-local driver = localRequire "driver"
+local driver = localRequire("driver")
 local getopts = localRequire("lib/getopts")
 local gitrepo = localRequire("lib/gitl/gitrepo")
 local gitdex = localRequire("lib/gitl/gitdex")

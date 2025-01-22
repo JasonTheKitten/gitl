@@ -9,7 +9,7 @@ function localRequire(name)
   end
 
   local scriptPath = debug.getinfo(1, "S").source:sub(2)
-  local scriptDir = scriptPath:match("(.*/)") or "./"
+  local scriptDir = (scriptPath:match("(.*/)") or "./") .. "../"
   local env = {}
   for k, v in pairs(_G) do
     env[k] = v
@@ -18,7 +18,7 @@ function localRequire(name)
 
   local loadName = name
   if loadName == "driver" then
-    loadName = "driver_puc"
+    loadName = "drivers/driver_puc"
   end
   local ok, err = loadfile(scriptDir .. loadName .. ".lua", "t", env)
   if not ok then

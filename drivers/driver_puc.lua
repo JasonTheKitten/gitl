@@ -1,21 +1,8 @@
 local lfs = require "lfs"
-local posix = require "posix"
-
-local scriptPath = debug.getinfo(1, "S").source:sub(2)
-local scriptDir = scriptPath:match("(.*/)") or "./"
 
 local driver = {}
 
 driver.filesystem = {}
-driver.filesystem.workingDir = function()
-    return lfs.currentdir()
-end
-driver.filesystem.codeDir = function()
-    return scriptDir
-end
-driver.filesystem.homeDir = function()
-    return os.getenv("HOME")
-end
 driver.filesystem.collapse = function(path)
     local parts = {}
     for part in path:gmatch("[^/]+") do
@@ -57,6 +44,18 @@ driver.filesystem.combine = function(...)
         return result:sub(2)
     end
     return result
+end
+
+local scriptPath = debug.getinfo(1, "S").source:sub(2)
+local scriptDir = driver.filesystem.combine(scriptPath:match("(.*/)") or "./", "..")
+driver.filesystem.workingDir = function()
+    return lfs.currentdir()
+end
+driver.filesystem.codeDir = function()
+    return scriptDir
+end
+driver.filesystem.homeDir = function()
+    return os.getenv("HOME")
 end
 driver.filesystem.list = function(path)
     local files = {}
@@ -100,14 +99,14 @@ local function getNanoTime(path)
 end
 driver.filesystem.attributes = function(path)
     local ctimeNanos, mtimeNanos = getNanoTime(path)
-    local rawAttributes = posix.stat(path)
+    local rawAttributes = lfs.attributes(path)
     -- TODO: File perms
     return {
-        ctime = rawAttributes.ctime,
+        ctime = rawAttributes.change,
         ctimeNanos = ctimeNanos,
-        mtime = rawAttributes.mtime,
+        mtime = rawAttributes.modification,
         mtimeNanos = mtimeNanos,
-        fmode = rawAttributes.mode,
+        fmode = rawAttributes.permissions,
         dev = rawAttributes.dev,
         ino = rawAttributes.ino,
         uid = rawAttributes.uid,
