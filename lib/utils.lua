@@ -15,17 +15,19 @@ local function evalOp(code)
   return assert(load("return function(a, b) return a " .. code .. " b end"))()
 end
 
-local shl, shr, band, bor
+local shl, shr, band, bor, bnot
 if bit32 then
   shl = bit32.lshift
   shr = bit32.rshift
   band = bit32.band
   bor = bit32.bor
+  bnot = bit32.bnot
 else
   shl = evalOp("<<")
   shr = evalOp(">>")
   band = evalOp("&")
   bor = evalOp("|")
+  bnot = assert(load("return function(a) return ~a end"))()
 end
 
 local function write32BitNumber(file, number)
@@ -72,6 +74,7 @@ return {
   shr = shr,
   band = band,
   bor = bor,
+  bnot = bnot,
   write32BitNumber = write32BitNumber,
   write16BitNumber = write16BitNumber,
   write20ByteHash = write20ByteHash,

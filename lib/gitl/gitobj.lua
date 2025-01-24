@@ -1,11 +1,14 @@
 local driver = localRequire("driver")
-local libdeflate = localRequire("third_party/libdeflate/libdeflate")
+local zlibl = localRequire("lib/zlibl")
 local sha1 = localRequire("third_party/sha1/init").sha1
 
 local filesystem = driver.filesystem
 
 local function decompressObject(data)
-  local packedData = libdeflate:DecompressZlib(data)
+  local reader = type(data) == "string" and zlibl.createStringReader(data) or data
+  local writer  = zlibl.createStringWriter()
+  zlibl.decodeZlib(reader, writer)
+  local packedData = writer.finalize()
   local typeEndIndex = packedData:find(" ")
   local type = packedData:sub(1, typeEndIndex - 1)
   local sizeEndIndex = packedData:find("\0")
@@ -22,7 +25,10 @@ local function compressObject(data, type)
   local size = #data
   local packedData = type .. " " .. size .. "\0" .. data
   local sha1Hash = sha1(packedData)
-  return libdeflate:CompressZlib(packedData), sha1Hash
+  local reader = zlibl.createStringReader(packedData)
+  local writer = zlibl.createStringWriter()
+  zlibl.encodeZlib(reader, writer)
+  return writer.finalize(), sha1Hash
 end
 
 local function readObject(gitDir, hash)
