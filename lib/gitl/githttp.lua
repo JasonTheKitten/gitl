@@ -69,7 +69,6 @@ end
 
 local function downloadPackFile(repository, options, pakOptions)
   local packFileURL = repository .. "git-upload-pack"
-  print(packFileURL)
   local postBody = formatPackFileOptions(options)
   local packFileHandle = http.post(packFileURL, postBody, {
     ["content-type"] = "application/x-git-upload-pack-request",

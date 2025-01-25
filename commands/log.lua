@@ -39,10 +39,16 @@ end
 local function detectCommits(gitDir, allFiles)
   local currentRef = gitref.getLastCommitHash(gitDir)
   local commitRefList = {}
-  while currentRef do
-    table.insert(commitRefList, currentRef)
-    local commit = gitobj.readAndDecodeObject(gitDir, currentRef, "commit")
-    currentRef = commit.parents[1]
+  local currentRefBacklog = { currentRef }
+  while #currentRefBacklog > 0 do
+    currentRef = table.remove(currentRefBacklog)
+    local ok, commit = pcall(gitobj.readAndDecodeObject, gitDir, currentRef, "commit")
+    if ok then
+      table.insert(commitRefList, currentRef)
+      for _, parent in pairs(commit.parents) do
+        table.insert(currentRefBacklog, parent)
+      end
+    end
   end
 
   local commits = {}

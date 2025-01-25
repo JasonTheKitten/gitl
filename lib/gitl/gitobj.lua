@@ -1,3 +1,4 @@
+-- TODO: Also load objects from packfiles
 local driver = localRequire("driver")
 local zlibl = localRequire("lib/zlibl")
 local sha1 = localRequire("third_party/sha1/init").sha1
@@ -10,7 +11,7 @@ local function decompressObject(data)
   zlibl.decodeZlib(reader, writer)
   local packedData = writer.finalize()
   local typeEndIndex = packedData:find(" ")
-  local type = packedData:sub(1, typeEndIndex - 1)
+  local mtype = packedData:sub(1, typeEndIndex - 1)
   local sizeEndIndex = packedData:find("\0")
   local size = tonumber(packedData:sub(typeEndIndex + 1, sizeEndIndex - 1))
   local content = packedData:sub(sizeEndIndex + 1)
@@ -18,7 +19,7 @@ local function decompressObject(data)
     error("Invalid object size")
   end
 
-  return type, content:sub(1) -- Remove extra byte
+  return mtype, content:sub(1) -- Remove extra byte
 end
 
 local function compressObject(data, type)
@@ -33,10 +34,7 @@ end
 
 local function readObject(gitDir, hash)
   local objectPath = filesystem.combine(gitDir, "objects", hash:sub(1, 2), hash:sub(3))
-  local file = io.open(objectPath, "rb")
-  if not file then
-    error("Object not found")
-  end
+  local file = assert(io.open(objectPath, "rb"))
   local data = file:read("*a")
   file:close()
   return decompressObject(data)

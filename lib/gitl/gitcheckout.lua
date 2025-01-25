@@ -12,7 +12,7 @@ local filesystem, writeAll = driver.filesystem, utils.writeAll
 local function switchToNewBranch(gitDir, branch)
   local branchesDir = filesystem.combine(gitDir, "refs/heads")
   if not filesystem.exists(branchesDir) then
-    filesystem.makeDirectory(branchesDir)
+    filesystem.makeDir(branchesDir)
   end
 
   local branchPath = filesystem.combine(branchesDir, branch)
@@ -40,11 +40,12 @@ directWriteObject = function(gitDir, objectDir, objectHash, name)
   local object = gitobj.readAndDecodeObject(gitDir, objectHash)
   local objectPath = filesystem.combine(objectDir, name)
   if object.type == "blob" then
+    -- TODO: Ensure file permissions are correct (+x)
     local file = assert(io.open(objectPath, "wb"))
     file:write(object.data)
     file:close()
   else
-    filesystem.makeDirectory(objectPath)
+    filesystem.makeDir(objectPath)
     for _, entry in ipairs(object.entries) do
       directWriteObject(gitDir, objectPath, entry.hash, entry.name)
     end
@@ -91,19 +92,7 @@ updateWorkingDirectory = function(gitDir, objectDir, oldTree, newTree)
   end
 end
 
-local function switchToExistingBranch(gitDir, projectDir, newCommitHash, newHead)
-  -- First, get the current tree
-  local currentCommitHash = gitref.getLastCommitHash(gitDir)
-  local currentCommitTreeHash = gitobj.readAndDecodeObject(gitDir, currentCommitHash, "commit").tree
-  local currentTree = gitobj.readAndDecodeObject(gitDir, currentCommitTreeHash, "tree")
-
-  -- Next, the new tree
-  local newCommit = gitobj.readAndDecodeObject(gitDir, newCommitHash, "commit")
-  local newTree = gitobj.readAndDecodeObject(gitDir, newCommit.tree, "tree")
-
-  -- Now, update the working directory
-  updateWorkingDirectory(gitDir, projectDir, currentTree, newTree)
-
+local function finalizeExistingSwitch(gitDir, projectDir, newHead)
   -- Now, update the HEAD
   local headPath = filesystem.combine(gitDir, "HEAD")
   writeAll(headPath, newHead)
@@ -117,7 +106,32 @@ local function switchToExistingBranch(gitDir, projectDir, newCommitHash, newHead
   gitdex.writeIndex(index, indexFile)
 end
 
+local function switchToExistingBranch(gitDir, projectDir, newCommitHash, newHead)
+  -- First, get the current tree
+  local currentCommitHash = gitref.getLastCommitHash(gitDir)
+  local currentCommitTreeHash = gitobj.readAndDecodeObject(gitDir, currentCommitHash, "commit").tree
+  local currentTree = gitobj.readAndDecodeObject(gitDir, currentCommitTreeHash, "tree")
+
+  -- Next, the new tree
+  local newCommit = gitobj.readAndDecodeObject(gitDir, newCommitHash, "commit")
+  local newTree = gitobj.readAndDecodeObject(gitDir, newCommit.tree, "tree")
+
+  -- Now, update the working directory
+  updateWorkingDirectory(gitDir, projectDir, currentTree, newTree)
+
+  finalizeExistingSwitch(gitDir, projectDir, newHead)
+end
+
+local function freshCheckoutExistingBranch(gitDir, projectDir, newCommitHash, newHead)
+  local newCommit = gitobj.readAndDecodeObject(gitDir, newCommitHash, "commit")
+  local newTree = gitobj.readAndDecodeObject(gitDir, newCommit.tree, "tree")
+  directWriteObject(gitDir, projectDir, newCommit.tree, "")
+
+  finalizeExistingSwitch(gitDir, projectDir, newHead)
+end
+
 return {
   switchToNewBranch = switchToNewBranch,
-  switchToExistingBranch = switchToExistingBranch
+  switchToExistingBranch = switchToExistingBranch,
+  freshCheckoutExistingBranch = freshCheckoutExistingBranch
 }

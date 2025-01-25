@@ -1,7 +1,7 @@
 -- Deflate
 -- https://datatracker.ietf.org/doc/html/rfc1951
 local utils = localRequire("lib/utils")
-local shl, shr, band, bnot = utils.shl, utils.shr, utils.band, utils.bnot
+local shl, shr, band = utils.shl, utils.shr, utils.band
 
 local extraLenCodeList = {
   0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
@@ -182,6 +182,9 @@ end
 
 local function generateInitHuffmanTree(frequencies)
   local sortFunc = function(a, b)
+      if a.height ~= b.height then
+          return a.height < b.height
+      end
       return
         (a.frequency < b.frequency)
         or ((a.frequency == b.frequency) and (a.index < b.index))
@@ -190,7 +193,7 @@ local function generateInitHuffmanTree(frequencies)
   local nodes = {}
   for i = 0, #frequencies do
     if frequencies[i] ~= 0 then
-      table.insert(nodes, { frequency = frequencies[i], index = i })
+      table.insert(nodes, { frequency = frequencies[i], index = i, height = 0 })
     end
   end
   table.sort(nodes, sortFunc)
@@ -200,6 +203,7 @@ local function generateInitHuffmanTree(frequencies)
     local right = table.remove(nodes, 1)
     local newNode = {
       frequency = left.frequency + right.frequency,
+      height = math.max(left.height, right.height) + 1,
       index = math.min(left.index, right.index),
       left = left,
       right = right
@@ -796,7 +800,7 @@ local function inflate(reader, writer)
       bitReader.align()
       local len = bitReader.read(16)
       local nlen = bitReader.read(16)
-      assert(len == bnot(nlen), "Invalid uncompressed block")
+      assert(len + nlen == 0xFFFF, "Invalid uncompressed block")
       for i = 1, len do
         local byte = bitReader.read(8)
         writer.write(byte)

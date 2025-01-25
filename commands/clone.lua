@@ -23,7 +23,15 @@ end
 local function cloneRepo(projectDir, repository)
   filesystem.makeDir(projectDir)
   gitinit.init(projectDir)
-  gitclone.clone(projectDir, repository)
+  -- TODO: Config default branch
+  gitclone.clone(projectDir, repository, {
+    indicateProgress = function(current, total)
+      local totalLen = #tostring(total)
+      driver.resetCursor()
+      io.write("Cloning: " .. string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects")
+    end
+  })
+  print()
 end
 
 local function run(arguments)
@@ -39,9 +47,11 @@ local function run(arguments)
 
   xpcall(function()
     cloneRepo(projectDir, repository)
+    print("Cloned repository successfully")
   end, function(err)
     filesystem.rm(projectDir, true)
     print("Failed to clone repository: " .. tostring(err))
+    print("Traceback: " .. debug.traceback())
   end)
 end
 

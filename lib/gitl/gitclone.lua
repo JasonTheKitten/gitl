@@ -2,6 +2,7 @@ local driver = localRequire("driver")
 local utils = localRequire("lib/utils")
 local gitobj = localRequire("lib/gitl/gitobj")
 local githttp = localRequire("lib/gitl/githttp")
+local gitcheckout = localRequire("lib/gitl/gitcheckout")
 local filesystem, writeAll = driver.filesystem, utils.writeAll
 
 local function chooseBranchAndHash(projectDir, repository, defaultBranch)
@@ -28,21 +29,21 @@ local function chooseBranchAndHash(projectDir, repository, defaultBranch)
   return branchName, branchHash
 end
 
-local function clone(projectDir, repository, defaultBranch)
+local function clone(projectDir, repository, options)
   if repository:sub(-2) ~= "/" then
     repository = repository .. "/"
   end
   
   -- First, learn what branch/hash to clone
-  local gitdir = filesystem.combine(projectDir, ".git")
-  local branchName, branchHash = chooseBranchAndHash(projectDir, repository, defaultBranch)
-  local headPath = filesystem.combine(gitdir, "HEAD")
+  local gitDir = filesystem.combine(projectDir, ".git")
+  local branchName, branchHash = chooseBranchAndHash(projectDir, repository, options.defaultBranch)
+  local newHead
   if branchName then
-    local branchPath = filesystem.combine(gitdir, branchName)
-    writeAll(headPath, "ref: " .. branchName .. "\n")
+    local branchPath = filesystem.combine(gitDir, branchName)
+    newHead = "ref: " .. branchName .. "\n"
     writeAll(branchPath, branchHash .. "\n")
   else
-    writeAll(headPath, branchHash .. "\n")
+    newHead = branchHash .. "\n"
   end
 
   -- Now, download a packfile of new objects
@@ -51,14 +52,16 @@ local function clone(projectDir, repository, defaultBranch)
   }
   githttp.downloadPackFile(repository, packFileOptions, {
     writeObject = function(type, content)
-      local mtype, data = gitobj.decompressObject(content)
-      assert(mtype == type, "Mismatched object types")
-      gitobj.writeObject(gitdir, data, type)
+      gitobj.writeObject(gitDir, content, type)
     end,
-    loadObject = function(hash)
-      return gitobj.readObject(gitdir, hash)
-    end
+    readObject = function(objectHash)
+      return gitobj.readObject(gitDir, objectHash)
+    end,
+    indicateProgress = options.indicateProgress or function() end
   })
+
+  -- Finally, all we need to do is check out the branch
+  gitcheckout.freshCheckoutExistingBranch(gitDir, projectDir, branchHash, newHead)
 end
 
 return {

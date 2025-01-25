@@ -214,9 +214,7 @@ driver.http.post = function(url, body, headers)
     req:set_body(body)
     local respHeaders, stream = assert(req:go())
     local respBody = assert(stream:get_body_as_file())
-    for k, v in pairs(respHeaders) do
-        print(k, v)
-    end
+    
     return {
         headers = respHeaders,
         status = respHeaders:get(":status"),
@@ -280,6 +278,10 @@ driver.displayLongMessage = function(message)
     local pagerHandle = assert(io.popen(pager, "w"))
     pagerHandle:write(message)
     pagerHandle:close()
+end
+
+driver.resetCursor = function()
+    io.write("\r")
 end
 
 return driver
