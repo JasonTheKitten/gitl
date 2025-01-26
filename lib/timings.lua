@@ -24,7 +24,7 @@ local function enableTimings(name, rate)
 end
 
 local function startTiming(name)
-  if not ongoingTimings[name] then
+  if timings[name] and not ongoingTimings[name] then
     ongoingTimings[name] = os.clock()
     calls[name] = calls[name] + 1
   end

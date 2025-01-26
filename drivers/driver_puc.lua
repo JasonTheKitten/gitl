@@ -229,6 +229,9 @@ driver.http.post = function(url, body, headers)
                 currentChunk = stream:get_next_chunk()
                 chunkPointer = 0
             end
+            if not currentChunk then
+                error("No more data from remote (Did it time out?)")
+            end
 
             local toRead = math.min(n - builtResponseLen, #currentChunk - chunkPointer)
             table.insert(builtResponse, currentChunk:sub(chunkPointer + 1, chunkPointer + toRead))

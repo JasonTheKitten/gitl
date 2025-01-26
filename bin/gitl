@@ -1,4 +1,4 @@
-#!/bin/lua
+#!/bin/luajit
 -- Some environments do not have /usr/bin/env, so we just specifiy the direct path
 
 local cache = {}

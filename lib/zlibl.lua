@@ -1,5 +1,6 @@
 -- Deflate
 -- https://datatracker.ietf.org/doc/html/rfc1951
+-- TODO: Fix encoding empty files
 local utils = localRequire("lib/utils")
 local timings = localRequire("lib/timings")
 local shl, shr, band, bor = utils.shl, utils.shr, utils.band, utils.bor
@@ -273,14 +274,9 @@ end
 
 --
 
-local function trihash(a, b, c)
-  return a * 256 * 256 + b * 256 + c
-end
-
 local function createRollingWindow(length)
   local rollingWindow, rollingWindowIndex, rollingWindowSize, rollingWindowCycle = {}, 0, 0, 0
   local function write(byte)
-    --timings.startTiming("deflate-writeWindow")
     rollingWindowIndex = rollingWindowIndex + 1
     if rollingWindowIndex == length then
       rollingWindowIndex = 0
@@ -288,7 +284,6 @@ local function createRollingWindow(length)
     end
     rollingWindow[rollingWindowIndex] = byte
     rollingWindowSize = math.min(rollingWindowSize + 1, length)
-    --timings.stopTiming("deflate-writeWindow")
   end
   local function size()
     return rollingWindowSize
@@ -337,176 +332,167 @@ local function createRollingWindow(length)
   }
 end
 
-local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
-  timings.startTiming("deflate-deflateBlock")
-  local buffer = createRollingWindow(258)
+-- TODO: Allow cross-referencing blocks
+-- TODO: Remove hashes before the window start
+local function createLookupBuffer()
+  local hashTable, rollingHash = {}, 0
+  local currentString, strPointer = "", 0
+  local function addString(str)
+    currentString = str
+    hashTable, rollingHash, strPointer = {}, 0, 0
+  end
+  local function next(byte)
+    strPointer = strPointer + 1
+    rollingHash = (rollingHash * 256 + byte) % (256 * 256 * 256)
+    if strPointer < 3 then return end
+    hashTable[rollingHash] = hashTable[rollingHash] or {}
+    table.insert(hashTable[rollingHash], strPointer - 2)
+  end
+  local function getCurrentPosition()
+    return strPointer
+  end
+  local function getDistance(pointer1, pointer2)
+    return pointer1 - pointer2
+  end
+  local function getLength(matchPtr)
+    return getDistance(getCurrentPosition(), matchPtr) + 1
+  end
+  local function getByteAtPointer(pointer)
+    return currentString:byte(pointer)
+  end
+  local function getInitialMatches()
+    -- One hash is ourself, so we ignore it
+    local initialMatches = {}
+    local allMatches = hashTable[rollingHash]
+    for i = 1, #allMatches - 1 do
+      table.insert(initialMatches, allMatches[i])
+    end
 
-  -- We have a lookup to quickly find potential matches
-  local triLookup = {}
-  local function getTriEntries(a, b, c, index)
-    --timings.startTiming("deflate-getTriEntries")
-    local hash = trihash(a, b, c)
-    local linkedEntry = triLookup[hash]
-    if not linkedEntry then return {} end
-    local entries = {}
-    local parent = nil
-    while linkedEntry do
-      if window.distanceFrom(linkedEntry.cycle, linkedEntry.index) <= window.size() then
-        table.insert(entries, {
-          cycle = linkedEntry.cycle,
-          index = linkedEntry.index,
-          length = 3
-        })
-      else
-        if parent then
-          parent.next = nil
+    return initialMatches
+  end
+  local function extendMatches(matches, matchTableSize, matchPtr, nextByte)
+    local numMatches, removedMatch = 0, nil
+    local length = getLength(matchPtr)
+    for i = 1, matchTableSize do
+      if matches[i] then
+        local matchPos = matches[i] + length
+        local matchByte = getByteAtPointer(matchPos)
+        if (matchByte == nextByte) and (length < 258) then
+          numMatches = numMatches + 1
         else
-          triLookup[hash] = nil
+          removedMatch = matches[i]
+          matches[i] = nil
         end
       end
-      parent = linkedEntry
-      linkedEntry = linkedEntry.next
-      --timings.stopTiming("deflate-getTriEntries")
     end
 
-    return entries
+    return numMatches, removedMatch, length
   end
 
-  -- Now, set up block frequencies and storage
-  local charLenFreq = {}
-  local distFreq = {}
-  local intermediateBlock = {}
-  local function writeAndHash(char)
-    --timings.startTiming("deflate-writeAndHash")
-    local a, b, c = window.bytesAgo(2), window.bytesAgo(1), char
-    local cycle, index = window.agoCycleIndex(2)
-    window.write(char)
-    if not a then return end
-    local hash = trihash(a, b, c)
-    local linkedEntry = triLookup[hash]
-    local newEntry = {
-      cycle = cycle,
-      index = index
-    }
-    if linkedEntry then
-      while linkedEntry.next do
-        linkedEntry = linkedEntry.next
-      end
-      linkedEntry.next = newEntry
-    else
-      triLookup[hash] = newEntry
-    end
-    --timings.stopTiming("deflate-writeAndHash")
-  end
-  local function insertChar(char)
-    charLenFreq[char] = (charLenFreq[char] or 0) + 1
-    table.insert(intermediateBlock, char)
-  end
-  local function insertLen(len)
-    local offsetLen = 254 + len
-    charLenFreq[offsetLen] = (charLenFreq[offsetLen] or 0) + 1
-    table.insert(intermediateBlock, offsetLen)
-  end
-  local function insertDist(dist)
-    distFreq[dist] = (distFreq[dist] or 0) + 1
-    table.insert(intermediateBlock, dist)
-  end
-  
-  -- Maintain a set of leads that might give good compression
-  local leads = {}
-  local function flushBuffer()
-    leads = {}
-    for i = 1, buffer.size() do
-      insertChar(buffer.removeFirst())
-    end
-    buffer.reset()
-  end
-  local function flushFirstLead()
-    local lead = leads[1]
-    leads = {}
-    local dist = window.distanceFrom(lead.cycle, lead.index + lead.length)
-    insertLen(lead.length)
-    insertDist(dist)
-    buffer.reset()
-  end
-  local function scanInitialLeads(i)
-    local a, b, c = buffer.bytesAgo(3), buffer.bytesAgo(2), buffer.bytesAgo(1)
-    leads = getTriEntries(a, b, c, i - 3)
-  end
-  local function extendLeads(ch)
-    --timings.startTiming("deflate-extendLeads")
-    local reducedLeads = {}
-    for j = 1, #leads do
-      local lead = leads[j]
-      local distance = window.distanceFrom(lead.cycle, lead.index)
-      if ch == window.bytesAgo(distance - lead.length) then
-        lead.length = lead.length + 1
-        table.insert(reducedLeads, lead)
-      end
-    end
-    --timings.stopTiming("deflate-extendLeads")
-    return reducedLeads
+  return {
+    addString = addString,
+    next = next,
+    getCurrentPosition = getCurrentPosition,
+    getDistance = getDistance,
+    getLength = getLength,
+    getInitialMatches = getInitialMatches,
+    extendMatches = extendMatches
+  }
+end
+
+-- TODO: For better compression, use strings from previous blocks
+local function deflateBlock(reader, bitWriter, lookupBuffer, size, blockCompressor)
+  timings.startTiming("deflate-deflateBlock")
+
+  local input = reader.readString(size)
+  lookupBuffer.addString(input)
+
+  local charLenFreq, distFreq = { [256] = 1 }, {}
+  local intermediateBlock, strPtr, matches, matchTableSize, matchPtr =
+    {}, 1, {}, 0, lookupBuffer.getCurrentPosition() + 1
+
+  local function recordLenOffsetPair(length, distance)
+    local lenCode = length + 254
+
+    if length > 258 then error("Length too long") end
+    charLenFreq[lenCode] = (charLenFreq[lenCode] or 0) + 1
+    intermediateBlock[#intermediateBlock + 1] = lenCode
+
+    if distance > 32 * 1024 then error("Distance too far") end
+    assert(distance < matchPtr)
+    distFreq[distance] = (distFreq[distance] or 0) + 1
+    intermediateBlock[#intermediateBlock + 1] = distance
   end
 
-  -- Next, do basic compression
-  for i = 1, size do
-    local byte = reader.read()
-    if not byte then break end
-    if buffer.size() < 2 then
-      buffer.write(byte)
-    elseif buffer.size() == 2 then
-      buffer.write(byte)
-      scanInitialLeads(i)
-    elseif (buffer.size() == 3) and (#leads == 0) then
-      insertChar(buffer.removeFirst())
-      buffer.write(byte)
-      scanInitialLeads(i)
-    elseif buffer.size() == 258 then
-      flushFirstLead()
-      buffer.write(byte)
-    else
-      assert(#leads > 0)
-      local newLeads = extendLeads(byte)
-      if #newLeads == 0 then
-        flushFirstLead()
-        buffer.write(byte)
+  -- For now, I'll assume input is at least 3 chars
+  while strPtr <= #input do
+    local byte = input:byte(strPtr)
+    charLenFreq[byte] = (charLenFreq[byte] or 0) + 1
+
+    if matchTableSize == 0 then
+      lookupBuffer.next(byte)
+      local hasEnoughChars = lookupBuffer.getCurrentPosition() - matchPtr >= 2
+      matches = hasEnoughChars and lookupBuffer.getInitialMatches() or {}
+      if not hasEnoughChars or (#matches == 0) then
+        if lookupBuffer.getCurrentPosition() - matchPtr == 2 then
+          -- TODO: Let the string grow longer
+          local dist = lookupBuffer.getCurrentPosition() - matchPtr
+          local prevByte = input:byte(strPtr - dist)
+          intermediateBlock[#intermediateBlock + 1] = prevByte
+          charLenFreq[prevByte] = (charLenFreq[prevByte] or 0) + 1
+          matchPtr = matchPtr + 1
+        end
       else
-        leads = newLeads
-        buffer.write(byte)
+        matchTableSize = #matches
+      end
+      strPtr = strPtr + 1
+    else
+      local numMatches, removedMatch, length = lookupBuffer.extendMatches(matches, matchTableSize, matchPtr, byte)
+      if numMatches == 0 then
+        local distance = lookupBuffer.getDistance(matchPtr, removedMatch)
+        recordLenOffsetPair(length, distance)
+        matchTableSize, matchPtr = 0, lookupBuffer.getCurrentPosition() + 1
+      else
+        lookupBuffer.next(byte)
+        strPtr = strPtr + 1
       end
     end
-    writeAndHash(byte)
   end
 
-  -- Finally, flush the buffer
-  if #leads > 0 then
-    flushFirstLead()
+  if matchTableSize == 0 then
+    local missed = lookupBuffer.getCurrentPosition() - matchPtr
+    intermediateBlock[#intermediateBlock + 1] = input:sub(strPtr - missed - 1, #input)
+    for i = 1, #intermediateBlock do
+      charLenFreq[intermediateBlock[i]] = (charLenFreq[intermediateBlock[i]] or 0) + 1
+    end
   else
-    flushBuffer()
+    local length = lookupBuffer.getLength(matchPtr)
+    for i = 1, matchTableSize do
+      if matches[i] then
+        local distance = lookupBuffer.getDistance(matchPtr, matches[i])
+        recordLenOffsetPair(length, distance)
+        break
+      end
+    end
   end
 
-  table.insert(intermediateBlock, 256)
-  charLenFreq[256] = 1
+  intermediateBlock[#intermediateBlock + 1] = 256
 
   timings.stopTiming("deflate-deflateBlock")
-
-  --[[local intermediateBlock, charLenFreq, distFreq = {}, {}, {}
-  for i = 1, size do
-    local byte = reader.read()
-    if not byte then break end
-    intermediateBlock[i] = byte
-    charLenFreq[byte] = (charLenFreq[byte] or 0) + 1
-  end]]
-
   return blockCompressor(bitWriter, intermediateBlock, charLenFreq, distFreq, reader.done())
 end
 
 local function compressHuffmanDeflateBlockContent(bitWriter, intermediateBlock, charLenCodes, distCodes)
   local i = 1
-  timings.startTiming("i1")
+  timings.startTiming("deflate-compressHuffmanDeflateBlockContent")
   while i <= #intermediateBlock do
     local byte = intermediateBlock[i]
-    if byte <= 256 then
+    if type(byte) == "string" then
+      for j = 1, #byte do
+        bitWriter.writeBitString(charLenCodes[byte:byte(j)])
+      end
+      i = i + 1
+    elseif byte <= 256 then
       bitWriter.writeBitString(charLenCodes[byte])
       i = i + 1
     else
@@ -524,7 +510,7 @@ local function compressHuffmanDeflateBlockContent(bitWriter, intermediateBlock, 
       i = i + 2
     end
   end
-  timings.stopTiming("i1")
+  timings.stopTiming("deflate-compressHuffmanDeflateBlockContent")
 end
 
 --
@@ -552,7 +538,7 @@ local function adjustDistFreq(distFreq)
   end
   for k, v in pairs(distFreq) do
     local distCodeGroup = resolveDistCodeGroup(k)
-    adjustedDistFreq[distCodeGroup] = adjustedDistFreq[distCodeGroup] + v
+    adjustedDistFreq[distCodeGroup] = (adjustedDistFreq[distCodeGroup] or 0) + v
   end
 
   return adjustedDistFreq
@@ -696,10 +682,10 @@ end
 --
 
 local function deflate(reader, writer)
-  local window = createRollingWindow(32 * 1024)
+  local lookupBuffer = createLookupBuffer()
   local bitWriter = createBitWriter(writer)
   while not reader.done() do
-    deflateBlock(reader, bitWriter, window, 32 * 1024, compressDynamicDeflateBlock)
+    deflateBlock(reader, bitWriter, lookupBuffer, 32 * 1024, compressDynamicDeflateBlock)
   end
   bitWriter.finalize()
 end
@@ -886,6 +872,14 @@ local function createAdler32Reader(reader)
       a = (a + byte) % 65521
       b = (b + a) % 65521
       return byte
+    end,
+    readString = function(len)
+      local str = reader.readString(len)
+      for i = 1, #str do
+        a = (a + str:byte(i)) % 65521
+        b = (b + a) % 65521
+      end
+      return str
     end,
     done = function()
       return reader.done()
