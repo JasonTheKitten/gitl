@@ -67,7 +67,13 @@ driver.filesystem.list = function(path)
     end
     return files
 end
-driver.filesystem.makeDir = function(path)
+driver.filesystem.makeDir = function(path, recursive)
+    if recursive then
+        local parent = driver.filesystem.collapse(driver.filesystem.combine(path, ".."))
+        if parent ~= "" and not driver.filesystem.exists(parent) then
+            driver.filesystem.makeDir(parent, true)
+        end
+    end
     lfs.mkdir(path)
 end
 driver.filesystem.exists = function(path)
@@ -213,7 +219,28 @@ driver.http.post = function(url, body, headers)
     end
     req:set_body(body)
     local respHeaders, stream = assert(req:go())
-    local respBody = assert(stream:get_body_as_file())
+
+    local respBody = {}
+    local currentChunk, chunkPointer = "", 0
+    function respBody:read(n)
+        local builtResponse, builtResponseLen = {}, 0
+        while builtResponseLen < n do
+            if chunkPointer == #currentChunk then
+                currentChunk = stream:get_next_chunk()
+                chunkPointer = 0
+            end
+
+            local toRead = math.min(n - builtResponseLen, #currentChunk - chunkPointer)
+            table.insert(builtResponse, currentChunk:sub(chunkPointer + 1, chunkPointer + toRead))
+            builtResponseLen = builtResponseLen + toRead
+            chunkPointer = chunkPointer + toRead
+        end
+
+        return table.concat(builtResponse)
+    end
+    function respBody:close()
+        stream:shutdown()
+    end
     
     return {
         headers = respHeaders,
@@ -280,6 +307,12 @@ driver.displayLongMessage = function(message)
     pagerHandle:close()
 end
 
+driver.disableCursor = function()
+    io.write("\27[?25l")
+end
+driver.enableCursor = function()
+    io.write("\27[?25h")
+end
 driver.resetCursor = function()
     io.write("\r")
 end

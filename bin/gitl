@@ -33,6 +33,7 @@ end
 --
 
 local driver = localRequire("driver")
+local timings = localRequire("lib/timings")
 local getopts = localRequire("lib/getopts")
 
 local filesystem = driver.filesystem
@@ -50,6 +51,7 @@ for _, file in ipairs(filesystem.list(filesystem.combine(filesystem.codeDir(), "
 end
 
 optionsSpec.help = { flag = "help", short = "h", description = "Display this help message" }
+optionsSpec.timings = { flag = "timings", description = "Display timing information (for profiling)" }
 
 local options = getopts.options(optionsSpec)
 local ok, results = getopts.parse(options, { ... }, {
@@ -73,6 +75,12 @@ if not ok or results.help or not results.command then
 end
 if not (ok and results.command) then
   return
+end
+
+if results.timings then
+  timings.enableTimings("encodeZlib", 100)
+  timings.enableTimings("decodeZlib", 100)
+  timings.enableTimings("applyDelta", 100)
 end
 
 local myCommand = subcommands[results.command]

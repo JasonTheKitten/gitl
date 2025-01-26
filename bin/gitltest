@@ -1,0 +1,70 @@
+#!/bin/lua
+-- Some environments do not have /usr/bin/env, so we just specifiy the direct path
+
+local cache = {}
+local localRequire
+function localRequire(name)
+  if cache[name] then
+    return cache[name]
+  end
+
+  local scriptPath = debug.getinfo(1, "S").source:sub(2)
+  local scriptDir = (scriptPath:match("(.*/)") or "./") .. "../"
+  local env = {}
+  for k, v in pairs(_G) do
+    env[k] = v
+  end
+  env.localRequire = localRequire
+
+  local loadName = name
+  if loadName == "driver" then
+    loadName = "drivers/driver_puc"
+  end
+  local ok, err = loadfile(scriptDir .. loadName .. ".lua", "t", env)
+  if not ok then
+    error(err)
+  end
+
+  local result = ok()
+  cache[name] = result
+  return result
+end
+
+--
+
+local zlibl = localRequire("lib/zlibl")
+local timings = localRequire("lib/timings")
+local libdeflate = localRequire("scraps/libdeflate/libdeflate")
+
+timings.enableTimings("encodeZlib", 100)
+timings.enableTimings("decodeZlib", 100)
+timings.enableTimings("encodeZlib2", 100)
+timings.enableTimings("decodeZlib2", 100)
+timings.enableTimings("deflate-compressDynamicDeflateBlock", 100)
+timings.enableTimings("deflate-compressDynamicDeflateBlock1", 100)
+timings.enableTimings("i1", 100)
+--timings.enableTimings("deflate-codesToCodeOccurrenceTable", 100) -- Good
+--timings.enableTimings("deflate-writeCodeOccurrenceTable", 100) -- Good
+timings.enableTimings("deflate-deflateBlock", 100)
+timings.enableTimings("deflate-getTriEntries", 20000)
+timings.enableTimings("deflate-extendLeads", 300000)
+timings.enableTimings("deflate-writeAndHash", 300000)
+timings.enableTimings("deflate-writeWindow", 300000)
+
+local testFileHandle = assert(io.open("scraps/large.txt", "rb"))
+local text = testFileHandle:read("*a")
+print(#text)
+testFileHandle:close()
+
+-- Test 1: Custom compress, custom decode
+for i = 1, 100 do
+local strReader, strWriter = zlibl.createStringReader(text), zlibl.createStringWriter()
+zlibl.encodeZlib(strReader, strWriter)
+
+timings.startTiming("encodeZlib2")
+libdeflate:CompressZlib(text)
+timings.stopTiming("encodeZlib2")
+
+--strReader, strWriter = zlibl.createStringReader(result), zlibl.createStringWriter()
+--zlibl.decodeZlib(strReader, strWriter)
+end

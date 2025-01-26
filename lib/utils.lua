@@ -22,6 +22,12 @@ if bit32 then
   band = bit32.band
   bor = bit32.bor
   bnot = bit32.bnot
+elseif bit then
+  shl = bit.lshift
+  shr = bit.rshift
+  band = bit.band
+  bor = bit.bor
+  bnot = bit.bnot
 else
   shl = evalOp("<<")
   shr = evalOp(">>")

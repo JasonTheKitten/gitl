@@ -1,7 +1,8 @@
 -- Deflate
 -- https://datatracker.ietf.org/doc/html/rfc1951
 local utils = localRequire("lib/utils")
-local shl, shr, band = utils.shl, utils.shr, utils.band
+local timings = localRequire("lib/timings")
+local shl, shr, band, bor = utils.shl, utils.shr, utils.band, utils.bor
 
 local extraLenCodeList = {
   0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
@@ -78,37 +79,69 @@ end
 
 --
 
+local reversedBits = {}
+local function reverseBits(bits, numBits)
+  local reversed = 0
+  for i = 0, numBits - 1 do
+    reversed = shl(reversed, 1) + band(shr(bits, i), 1)
+  end
+  return reversed
+end
+for i = 0, 8 do
+  reversedBits[i] = {}
+  for j = 0, 2 ^ i - 1 do
+    reversedBits[i][j] = reverseBits(j, i)
+  end
+end
+local reversedBytes = reversedBits[8]
+
 local function createBitWriter(writer)
   local currentByte, bitIndex = 0, 0
-  local function writeBit(bit)
-    if bitIndex == 8 then
-      writer.write(currentByte)
+  local function flushCurrentByte()
+    if bitIndex > 0 then
+      writer.write(reversedBytes[currentByte])
       currentByte, bitIndex = 0, 0
     end
-    currentByte = currentByte + shl(bit, bitIndex)
-    bitIndex = bitIndex + 1
   end
-  local function write(value, numBits)
-    for i = 0, numBits - 1 do
-      writeBit(shr(value, i) & 1)
+
+  local function write(value, length)
+    -- Need to write bits in reverse order
+    while length > 0 do
+      if bitIndex == 8 then
+        writer.write(reversedBytes[currentByte])
+        currentByte, bitIndex = 0, 0
+      end
+      local bitsToWrite = math.min(8 - bitIndex, length)
+      local valuePart = band(value, 2 ^ bitsToWrite - 1)
+      local valueToWrite = reversedBits[bitsToWrite][valuePart]
+      local shifted = shl(valueToWrite, 7 - bitIndex - bitsToWrite + 1)
+      currentByte = bor(currentByte, shifted)
+      bitIndex = bitIndex + bitsToWrite
+      length = length - bitsToWrite
+      value = shr(value, bitsToWrite)
     end
   end
   local function writeBitString(bitString)
-    for i = 1, #bitString do
-      writeBit(tonumber(bitString:sub(i, i)))
-    end
-  end
-  local function finalize()
-    if bitIndex > 0 then
-      writer.write(currentByte)
+    local length = #bitString
+    local value = tonumber(bitString, 2)
+    while length > 0 do
+      if bitIndex == 8 then
+        writer.write(reversedBytes[currentByte])
+        currentByte, bitIndex = 0, 0
+      end
+      local bitsToWrite = math.min(8 - bitIndex, length)
+      local valueToWrite = band(shr(value, length - bitsToWrite), 2 ^ bitsToWrite - 1)
+      local shifted = shl(valueToWrite, 7 - bitIndex - bitsToWrite + 1)
+      currentByte = bor(currentByte, shifted)
+      bitIndex = bitIndex + bitsToWrite
+      length = length - bitsToWrite
     end
   end
 
   return {
-    writeBit = writeBit,
     write = write,
     writeBitString = writeBitString,
-    finalize = finalize
+    finalize = flushCurrentByte
   }
 end
 
@@ -124,7 +157,7 @@ local function createBitReader(reader)
     if bitIndex == 8 then
       align()
     end
-    local result = shr(currentByte, bitIndex) & 1
+    local result = band(shr(currentByte, bitIndex), 1)
     bitIndex = bitIndex + 1
     return result
   end
@@ -148,7 +181,7 @@ end
 local function toBitStr(value, bitLength)
   local str = ""
   for i = bitLength - 1, 0, -1 do
-      str = str .. tostring(shr(value, i) & 1)
+      str = str .. tostring(band(shr(value, i), 1))
   end
   return str
 end
@@ -247,6 +280,7 @@ end
 local function createRollingWindow(length)
   local rollingWindow, rollingWindowIndex, rollingWindowSize, rollingWindowCycle = {}, 0, 0, 0
   local function write(byte)
+    --timings.startTiming("deflate-writeWindow")
     rollingWindowIndex = rollingWindowIndex + 1
     if rollingWindowIndex == length then
       rollingWindowIndex = 0
@@ -254,6 +288,7 @@ local function createRollingWindow(length)
     end
     rollingWindow[rollingWindowIndex] = byte
     rollingWindowSize = math.min(rollingWindowSize + 1, length)
+    --timings.stopTiming("deflate-writeWindow")
   end
   local function size()
     return rollingWindowSize
@@ -303,11 +338,13 @@ local function createRollingWindow(length)
 end
 
 local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
+  timings.startTiming("deflate-deflateBlock")
   local buffer = createRollingWindow(258)
 
   -- We have a lookup to quickly find potential matches
   local triLookup = {}
   local function getTriEntries(a, b, c, index)
+    --timings.startTiming("deflate-getTriEntries")
     local hash = trihash(a, b, c)
     local linkedEntry = triLookup[hash]
     if not linkedEntry then return {} end
@@ -329,6 +366,7 @@ local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
       end
       parent = linkedEntry
       linkedEntry = linkedEntry.next
+      --timings.stopTiming("deflate-getTriEntries")
     end
 
     return entries
@@ -339,6 +377,7 @@ local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
   local distFreq = {}
   local intermediateBlock = {}
   local function writeAndHash(char)
+    --timings.startTiming("deflate-writeAndHash")
     local a, b, c = window.bytesAgo(2), window.bytesAgo(1), char
     local cycle, index = window.agoCycleIndex(2)
     window.write(char)
@@ -357,6 +396,7 @@ local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
     else
       triLookup[hash] = newEntry
     end
+    --timings.stopTiming("deflate-writeAndHash")
   end
   local function insertChar(char)
     charLenFreq[char] = (charLenFreq[char] or 0) + 1
@@ -394,6 +434,7 @@ local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
     leads = getTriEntries(a, b, c, i - 3)
   end
   local function extendLeads(ch)
+    --timings.startTiming("deflate-extendLeads")
     local reducedLeads = {}
     for j = 1, #leads do
       local lead = leads[j]
@@ -403,6 +444,7 @@ local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
         table.insert(reducedLeads, lead)
       end
     end
+    --timings.stopTiming("deflate-extendLeads")
     return reducedLeads
   end
 
@@ -446,11 +488,22 @@ local function deflateBlock(reader, bitWriter, window, size, blockCompressor)
   table.insert(intermediateBlock, 256)
   charLenFreq[256] = 1
 
+  timings.stopTiming("deflate-deflateBlock")
+
+  --[[local intermediateBlock, charLenFreq, distFreq = {}, {}, {}
+  for i = 1, size do
+    local byte = reader.read()
+    if not byte then break end
+    intermediateBlock[i] = byte
+    charLenFreq[byte] = (charLenFreq[byte] or 0) + 1
+  end]]
+
   return blockCompressor(bitWriter, intermediateBlock, charLenFreq, distFreq, reader.done())
 end
 
 local function compressHuffmanDeflateBlockContent(bitWriter, intermediateBlock, charLenCodes, distCodes)
   local i = 1
+  timings.startTiming("i1")
   while i <= #intermediateBlock do
     local byte = intermediateBlock[i]
     if byte <= 256 then
@@ -471,6 +524,7 @@ local function compressHuffmanDeflateBlockContent(bitWriter, intermediateBlock, 
       i = i + 2
     end
   end
+  timings.stopTiming("i1")
 end
 
 --
@@ -588,6 +642,8 @@ local function highestNonZero(tbl)
 end
 
 local function compressDynamicDeflateBlock(bitWriter, intermediateBlock, charLenFreq, distFreq, done)
+  timings.startTiming("deflate-compressDynamicDeflateBlock")
+
   bitWriter.write(done and 1 or 0, 1) -- BFINAL
   bitWriter.write(2, 2) -- BTYPE
 
@@ -624,14 +680,17 @@ local function compressDynamicDeflateBlock(bitWriter, intermediateBlock, charLen
   bitWriter.write(highestHCLEN - 4, 4) -- HCLEN
 
   for i = 1, math.max(highestHCLEN, 4) do
-    -- TODO: Should this really be or ""?
-    local codeLen = #(codeLenCodes[codeLengthCodeList[i]] or "")
+    local code = codeLenCodes[codeLengthCodeList[i]]
+    local codeLen = code and #code or 0
     bitWriter.write(codeLen, 3)
   end
   writeCodeOccurrenceTable(bitWriter, charLenCodeOccurrences, codeLenCodes)
   writeCodeOccurrenceTable(bitWriter, distCodeOccurences, codeLenCodes)
+  timings.stopTiming("deflate-compressDynamicDeflateBlock")
 
+  timings.startTiming("deflate-compressDynamicDeflateBlock1")
   compressHuffmanDeflateBlockContent(bitWriter, intermediateBlock, charLenCodes, distCodes)
+  timings.stopTiming("deflate-compressDynamicDeflateBlock1")
 end
 
 --
@@ -648,16 +707,10 @@ end
 --
 
 local function addCodeToLookupTable(lookupTable, code, value)
-  local currentTable = lookupTable
-  for i = 1, #code - 1 do
-    local bit = tonumber(code:sub(i, i))
-    if not bit then error("Invalid code") end
-    if not currentTable[bit] then
-      currentTable[bit] = {}
-    end
-    currentTable = currentTable[bit]
+  for i = #lookupTable + 1, #code do
+    lookupTable[i] = {}
   end
-  currentTable[tonumber(code:sub(#code, #code))] = value
+  lookupTable[#code][tonumber(code, 2)] = value
 end
 
 local function createCodeLookupTable(codes)
@@ -675,11 +728,13 @@ local function createCodeLookupFromLengths(lengths)
 end
 
 local function readCode(bitReader, lookupTable)
-  local currentTable = lookupTable
-  while type(currentTable) == "table" do
-    currentTable = currentTable[bitReader.readBit()]
+  local byte = 0
+  for i = 1, #lookupTable do
+    byte = shl(byte, 1) + bitReader.readBit()
+    local value = lookupTable[i][byte]
+    if value then return value end
   end
-  return currentTable
+  error("Invalid code")
 end
 
 local function readCodeOccurrenceTable(bitReader, codeLenLookup, numEntries)
@@ -842,18 +897,20 @@ local function createAdler32Reader(reader)
 end
 
 local function write32BitNumber(writer, number)
-  writer.write(shr(number, 24) & 0xFF)
-  writer.write(shr(number, 16) & 0xFF)
-  writer.write(shr(number, 8) & 0xFF)
-  writer.write(number & 0xFF)
+  writer.write(band(shr(number, 24), 0xFF))
+  writer.write(band(shr(number, 16), 0xFF))
+  writer.write(band(shr(number, 8), 0xFF))
+  writer.write(band(number, 0xFF))
 end
 
 local function encodeZlib(reader, writer)
+  timings.startTiming("encodeZlib")
   writer.write(0x78)
   writer.write(0xDA)
   local adler32Reader = createAdler32Reader(reader)
   deflate(adler32Reader, writer)
   write32BitNumber(writer, adler32Reader.adler32())
+  timings.stopTiming("encodeZlib")
 end
 
 local function createAdler32Writer(writer)
@@ -875,6 +932,8 @@ local function read32BitNumber(reader)
 end
 
 local function decodeZlib(reader, writer)
+  timings.startTiming("decodeZlib")
+  
   local cmf = reader.read()
   local flg = reader.read()
   local cm = band(cmf, 0x0F)
@@ -893,6 +952,8 @@ local function decodeZlib(reader, writer)
   local computedAdler32 = adler32Writer.adler32()
   local expectedAdler32 = read32BitNumber(reader)
   assert(computedAdler32 == expectedAdler32, "Invalid Adler32 checksum")
+
+  timings.stopTiming("decodeZlib")
 end
 
 --
@@ -904,6 +965,11 @@ local function createStringReader(str)
       local byte = str:byte(index)
       index = index + 1
       return byte
+    end,
+    readString = function(len)
+      local s = str:sub(index, index + len - 1)
+      index = index + len
+      return s
     end,
     done = function()
       return index > #str
@@ -917,6 +983,9 @@ local function createStringWriter()
     write = function(byte)
       table.insert(strTbl, string.char(byte))
     end,
+    writeString = function(str)
+      table.insert(strTbl, str)
+    end,
     finalize = function()
       return table.concat(strTbl)
     end
@@ -928,6 +997,9 @@ local function createIOReader(io)
     read = function()
       return io:read(1):byte()
     end,
+    readString = function(len)
+      return io:read(len)
+    end,
     done = function()
       return io:read(0) == nil
     end
@@ -938,6 +1010,9 @@ local function createIOWriter(io)
   return {
     write = function(byte)
       io:write(string.char(byte))
+    end,
+    writeString = function(str)
+      io:write(str)
     end
   }
 end

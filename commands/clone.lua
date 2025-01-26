@@ -24,6 +24,7 @@ local function cloneRepo(projectDir, repository)
   filesystem.makeDir(projectDir)
   gitinit.init(projectDir)
   -- TODO: Config default branch
+  driver.disableCursor()
   gitclone.clone(projectDir, repository, {
     indicateProgress = function(current, total)
       local totalLen = #tostring(total)
@@ -31,6 +32,7 @@ local function cloneRepo(projectDir, repository)
       io.write("Cloning: " .. string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects")
     end
   })
+  driver.enableCursor()
   print()
 end
 

@@ -41,6 +41,7 @@ local function clone(projectDir, repository, options)
   if branchName then
     local branchPath = filesystem.combine(gitDir, branchName)
     newHead = "ref: " .. branchName .. "\n"
+    filesystem.makeDir(filesystem.combine(branchPath, ".."), true)
     writeAll(branchPath, branchHash .. "\n")
   else
     newHead = branchHash .. "\n"
@@ -50,6 +51,7 @@ local function clone(projectDir, repository, options)
   local packFileOptions = {
     wants = { branchHash }
   }
+
   githttp.downloadPackFile(repository, packFileOptions, {
     writeObject = function(type, content)
       gitobj.writeObject(gitDir, content, type)

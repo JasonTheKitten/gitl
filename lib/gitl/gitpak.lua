@@ -29,6 +29,7 @@ end
 local function decodeStandardObject(reader, pakOptions, mtype)
   local writer = zlibl.createStringWriter()
   zlibl.decodeZlib(reader, writer)
+  if not pakOptions.writeObject then return end
   pakOptions.writeObject(BASIC_OBJECT_TYPES[mtype], writer.finalize())
 end
 
@@ -36,6 +37,7 @@ local function decodeDeltaObject(reader, pakOptions)
   local writer = zlibl.createStringWriter()
   local hash = decode20ByteHash(reader)
   zlibl.decodeZlib(reader, writer)
+  if not (pakOptions.readObject and pakOptions.writeObject) then return end
   local type, baseData = pakOptions.readObject(hash)
   local deltaReader = zlibl.createStringReader(writer.finalize())
   local newData = gitdelt.applyDelta(deltaReader, baseData)

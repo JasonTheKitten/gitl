@@ -1,6 +1,7 @@
 {
   "Lua.diagnostics.globals": [
     "localRequire",
-    "bit32"
+    "bit32",
+    "bit"
   ]
 }

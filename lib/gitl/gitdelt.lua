@@ -1,5 +1,6 @@
 local utils = localRequire("lib/utils")
-local shr, shl, band, bor = utils.shr, utils.shl, utils.band, utils.bor
+local timings = localRequire("lib/timings")
+local shl, band, bor = utils.shl, utils.band, utils.bor
 
 local function readSize(reader)
   local size = 0
@@ -16,6 +17,8 @@ local function readSize(reader)
 end
 
 local function applyDelta(deltaReader, baseData)
+  timings.startTiming("applyDelta")
+
   local baseSize, objSize = readSize(deltaReader), readSize(deltaReader)
   assert(baseSize == #baseData, "Base size mismatch")
   
@@ -24,9 +27,7 @@ local function applyDelta(deltaReader, baseData)
     local opcode = deltaReader.read()
     if band(opcode, 0x80) == 0 then
       -- New Data
-      for i = 1, opcode do
-        newData[#newData + 1] = string.char(deltaReader.read())
-      end
+      newData[#newData + 1] = deltaReader.readString(opcode)
     elseif band(opcode, 0x80) == 0x80 then
       -- Copy from base
       local offset, size = 0, 0
@@ -38,17 +39,18 @@ local function applyDelta(deltaReader, baseData)
       size = size + ((band(opcode, 0x20) ~= 0) and (deltaReader.read() * 256) or 0)
       size = size + ((band(opcode, 0x40) ~= 0) and (deltaReader.read() * 65536) or 0)
       size = size == 0 and 0x10000 or size
-      for i = 1, size do
-        newData[#newData + 1] = baseData:sub(offset + i, offset + i)
-      end
+      newData[#newData + 1] = baseData:sub(offset + 1, offset + size)
     else
       error("Invalid opcode: " .. opcode)
     end
   end
 
-  assert(#newData == objSize, "New size mismatch, expected " .. objSize .. ", got " .. #newData)
+  local newDataStr = table.concat(newData)
+  assert(#newDataStr == objSize, "New size mismatch, expected " .. objSize .. ", got " .. #newDataStr)
 
-  return table.concat(newData)
+  timings.stopTiming("applyDelta")
+
+  return newDataStr
 end
 
 return {
