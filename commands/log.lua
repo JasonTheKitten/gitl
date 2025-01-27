@@ -76,24 +76,20 @@ local function detectCommits(gitDir, allFiles)
   return commits
 end
 
-local function formatCommits(commits)
-  local formatted = ""
+local function formatCommits(commits, writer)
   for _, commit in ipairs(commits) do
     local hash = commit.hash
     commit = commit.commit
     -- TODO: Color, also helpfully determine applicable branches
-    formatted = formatted .. "commit " .. hash .. "\n"
-    formatted = formatted .. "Author: " .. commit.author .. "\n"
-    formatted = formatted .. "Date:   " .. os.date(nil, commit.authorTime) .. " " .. commit.authorTimezoneOffset .. "\n\n"
-    formatted = formatted .. "    " .. commit.message:gsub("\n", "\n    ") .. "\n"
+    writer:write("commit " .. hash .. "\n")
+    writer:write("Author: " .. commit.author .. "\n")
+    writer:write("Date:   " .. os.date(nil, commit.authorTime) .. " " .. commit.authorTimezoneOffset .. "\n\n")
+    writer:write("    " .. commit.message:gsub("\n", "\n    ") .. "\n")
     -- TODO: What if the commit date differs?
   end
-
-  return formatted
 end
 
-local function formatOneLineCommits(commits)
-  local formatted = ""
+local function formatOneLineCommits(commits, writer)
   for _, commit in ipairs(commits) do
     local hash = commit.hash
     commit = commit.commit
@@ -101,10 +97,8 @@ local function formatOneLineCommits(commits)
     if #message > 50 then
       message = message:sub(1, 47) .. "..."
     end
-    formatted = formatted .. hash:sub(1, 7) .. " " .. message .. "\n"
+    writer:write(hash:sub(1, 7) .. " " .. message .. "\n")
   end
-
-  return formatted
 end
 
 local function run(arguments)
@@ -118,11 +112,13 @@ local function run(arguments)
   local gitDir = assert(gitrepo.locateGitRepo())
   local commits = detectCommits(gitDir, expandedFiles)
   if arguments.options.oneline then
-    local commitLog = formatOneLineCommits(commits)
-    io.write(commitLog)
+    local longMessageDisplayHandle = driver.openLongMessageDisplay()
+    formatOneLineCommits(commits, longMessageDisplayHandle)
+    longMessageDisplayHandle:close()
   else
-    local commitLog = formatCommits(commits)
-    driver.displayLongMessage(commitLog)
+    local longMessageDisplayHandle = driver.openLongMessageDisplay()
+    formatCommits(commits, longMessageDisplayHandle)
+    longMessageDisplayHandle:close()
   end
 end
 

@@ -298,16 +298,25 @@ driver.edit = function(file, editorOverride)
     error("No editor found")
 end
 
-driver.displayLongMessage = function(message)
+local function openFallbackLongMessageDisplay()
+    local display = {}
+    function display:write(...)
+        io.write(...)
+    end
+    function display:close()
+        io.write("\n")
+    end
+
+    return display
+end
+
+driver.openLongMessageDisplay = function(message)
     local pager = os.getenv("PAGER") or "/usr/bin/less"
     local pagerBin = driver.filesystem.combine("/usr/bin", pager)
     if not (driver.filesystem.exists(pager) or driver.filesystem.exists(pagerBin)) then
-        print(message)
-        return
+        return openFallbackLongMessageDisplay()
     end
-    local pagerHandle = assert(io.popen(pager, "w"))
-    pagerHandle:write(message)
-    pagerHandle:close()
+    return assert(io.popen(pager, "w"))
 end
 
 driver.disableCursor = function()

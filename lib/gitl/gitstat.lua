@@ -104,6 +104,14 @@ local function compareTreeWithIndex(gitDir, tree, index)
   return diffIndexes(psuedoIndex, index, comparePsuedoIndexEntries)
 end
 
+-- Not necessarily, um, efficient, but that's a task for later
+local function compareTreeWithTree(gitDir, tree1, tree2)
+  local psuedoIndex1 = convertTreeToPsuedoIndex(gitDir, tree1)
+  local psuedoIndex2 = convertTreeToPsuedoIndex(gitDir, tree2)
+
+  return diffIndexes(psuedoIndex1, psuedoIndex2, comparePsuedoIndexEntries)
+end
+
 local function stat(gitDir, projectDir)
   local indexFile = filesystem.combine(gitDir, "index")
   local index = filesystem.exists(indexFile) and gitdex.readIndex(indexFile) or gitdex.createIndex()
@@ -126,5 +134,6 @@ return {
   diffIndexes = diffIndexes,
   compareWorkingWithIndex = compareWorkingWithIndex,
   compareTreeWithIndex = compareTreeWithIndex,
+  compareTreeWithTree = compareTreeWithTree,
   stat = stat
 }

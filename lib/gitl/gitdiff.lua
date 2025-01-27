@@ -1,3 +1,11 @@
+local driver = localRequire("driver")
+local utils = localRequire("lib/utils")
+local gitstat = localRequire("lib/gitl/gitstat")
+local gitdex = localRequire("lib/gitl/gitdex")
+local gitobj = localRequire("lib/gitl/gitobj")
+local gitref = localRequire("lib/gitl/gitref")
+local filesystem = driver.filesystem
+
 local function splitLines(contents)
   local lines = {}
   local line = ""
@@ -179,8 +187,167 @@ local function formatDiffContent(diffs, contextThreshold)
   return diffContent
 end
 
+-- TODO: Actual correct formatting
+local function createTreeDiffFormatterOptions(writeCallback, contextThreshold)
+  return {
+    addCallback = function(file, contentDiff)
+      local diffContent = formatDiffContent(contentDiff, contextThreshold)
+      local filesHeader =
+        "diff --git a/" .. file .. " b/" .. file .. "\n"
+        -- TODO: Next line
+        .. "--- /dev/null\n"
+        .. "+++ b/" .. file .. "\n"
+      writeCallback(filesHeader .. diffContent .. "\n")
+    end,
+    removeCallback = function(file)
+      local filesHeader =
+        "diff --git a/" .. file .. " b/" .. file .. "\n"
+        -- TODO: Next line
+        .. "--- a/" .. file .. "\n"
+        .. "+++ /dev/null\n"
+      writeCallback(filesHeader .. "\n")
+    end,
+    diffCallback = function(file, contentDiff)
+      local diffContent = formatDiffContent(contentDiff, contextThreshold)
+      local filesHeader =
+        "diff --git a/" .. file .. " b/" .. file .. "\n"
+        -- TODO: Next line
+        .. "--- a/" .. file .. "\n"
+        .. "+++ b/" .. file .. "\n"
+      writeCallback(filesHeader .. diffContent .. "\n")
+    end
+  }
+end
+
+local function diffDifferingTrees(treeDiff, options)
+  if not (
+    options.removeCallback and options.diffCallback
+    and options.getTree1File and options.getTree2File
+  ) then
+    error("Missing callbacks for diffDifferingTrees")
+  end
+
+  if options.addCallback then
+    for _, file in ipairs(treeDiff.insertions) do
+      local file2 = options.getTree2File(file)
+      local contentDiff = diff("", file2)
+      options.addCallback(file, contentDiff)
+    end
+  end
+  for _, file in ipairs(treeDiff.deletions) do
+    options.removeCallback(file)
+  end
+
+  for _, file in ipairs(treeDiff.modifications) do
+    local file1 = options.getTree1File(file)
+    local file2 = options.getTree2File(file)
+
+    -- Sometimes gitstat thinks the file has been changed, but it hasn't
+    -- I should probably fix that
+    if file1 ~= file2 then
+      local contentDiff = diff(file1, file2)
+      options.diffCallback(file, contentDiff)
+    end
+  end
+end
+
+local function getIndexFileContents(gitDir, index, file)
+  local entry = gitdex.getEntry(index, file)
+  local objectHash = entry.hash
+  local objectType, objectData = gitobj.readObject(gitDir, objectHash)
+  if objectType ~= "blob" then
+    error("Expected blob object")
+  end
+  return objectData
+end
+
+-- TODO: A similar function is in gitstat.lua. Perhaps it needs abstracted?
+local getTreeFileContents
+getTreeFileContents = function(gitDir, treeHash, file)
+  local contentType, contentData = gitobj.readObject(gitDir, treeHash)
+  if contentType ~= "tree" then
+    error("Expected tree object")
+  end
+  contentData = gitobj.decodeTreeData(contentData)
+
+  local currentPart, nextPart
+  local partAfterSlash = file:match("^.+/(.+)$")
+  if partAfterSlash then
+    currentPart = file:sub(1, #file - #partAfterSlash - 1)
+    nextPart = partAfterSlash
+  else
+    currentPart = file
+  end
+
+  for _, entry in ipairs(contentData.entries) do
+    if entry.name == currentPart then
+      if (tonumber(entry.mode) == 40000) and nextPart then -- TODO: Is this check enough?
+        return getTreeFileContents(gitDir, entry.hash, nextPart)
+      elseif not nextPart or (#nextPart == 0) then
+        local blobType, blobData = gitobj.readObject(gitDir, entry.hash)
+        if blobType ~= "blob" then
+          error("Expected blob object")
+        end
+        return blobData
+      end
+    end
+  end
+
+  return nil
+end
+
+local function getWorkingDirFileContents(projectDir, file)
+  local path = filesystem.combine(projectDir, file)
+  local contents = utils.readAll(path)
+  return contents or ""
+end
+
+local function diffWorking(gitDir, projectDir, index, options)
+  local treeDif = gitstat.compareWorkingWithIndex(gitDir, projectDir, index)
+  local optionsClone = {}
+  for k, v in pairs(options) do
+    optionsClone[k] = v
+  end
+  optionsClone.getTree1File = function(file) return getIndexFileContents(gitDir, index, file) end
+  optionsClone.getTree2File = function(file) return getWorkingDirFileContents(projectDir, file) end
+  optionsClone.addCallback = nil -- New untracked files should not be included in the diff
+  diffDifferingTrees(treeDif, optionsClone)
+end
+
+local function diffStaged(gitDir, index, options, commitOverride)
+  local lastCommitHash = commitOverride or gitref.getLastCommitHash(gitDir)
+  local _, commitObj = gitobj.readObject(gitDir, lastCommitHash)
+  local treeHash = gitobj.decodeCommitData(commitObj).tree
+
+  local stagedDif = gitstat.compareTreeWithIndex(gitDir, treeHash, index)
+
+  local optionsClone = {}
+  for k, v in pairs(options) do
+    optionsClone[k] = v
+  end
+  optionsClone.getTree1File = function(file) return getTreeFileContents(gitDir, treeHash, file) end
+  optionsClone.getTree2File = function(file) return getIndexFileContents(gitDir, index, file) end
+  diffDifferingTrees(stagedDif, optionsClone)
+end
+
+local function diffTree(gitDir, tree1, tree2, options)
+  local optionsClone = {}
+  for k, v in pairs(options) do
+    optionsClone[k] = v
+  end
+  optionsClone.getTree1File = function(file) return getTreeFileContents(gitDir, tree1, file) end
+  optionsClone.getTree2File = function(file) return getTreeFileContents(gitDir, tree2, file) end
+
+  local treeDiff = gitstat.compareTreeWithTree(gitDir, tree1, tree2)
+  diffDifferingTrees(treeDiff, optionsClone)
+end
+
 return {
   diff = diff,
   hunkDiffContent = hunkDiffContent,
-  formatDiffContent = formatDiffContent
+  formatDiffContent = formatDiffContent,
+  createTreeDiffFormatterOptions = createTreeDiffFormatterOptions,
+  diffWorking = diffWorking,
+  diffStaged = diffStaged,
+  diffTree = diffTree
 }

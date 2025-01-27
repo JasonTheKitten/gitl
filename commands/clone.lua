@@ -51,10 +51,10 @@ local function run(arguments)
     cloneRepo(projectDir, repository)
     print("Cloned repository successfully")
   end, function(err)
-    filesystem.rm(projectDir, true)
-    driver.enableCursor()
     print("Failed to clone repository: " .. tostring(err))
     print("Traceback: " .. debug.traceback())
+    filesystem.rm(projectDir, true)
+    driver.enableCursor()
   end)
 end
 

@@ -1,5 +1,5 @@
 #!/bin/luajit
--- Some environments do not have /usr/bin/env, so we just specifiy the direct path
+-- Some environments do not have /usr/bin/env, so we just specify the direct path
 
 local cache = {}
 local localRequire

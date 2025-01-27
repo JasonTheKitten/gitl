@@ -1,8 +1,8 @@
 -- TODO: Also load objects from packfiles
 local driver = localRequire("driver")
 local zlibl = localRequire("lib/zlibl")
+local gitref = localRequire("lib/gitl/gitref")
 local sha1 = localRequire("third_party/sha1/init").sha1
-
 local filesystem = driver.filesystem
 
 local function decompressObject(data)
@@ -58,6 +58,28 @@ end
 local function objectExists(gitDir, hash)
   local objectPath = filesystem.combine(gitDir, "objects", hash:sub(1, 2), hash:sub(3))
   return filesystem.exists(objectPath)
+end
+
+local function resolveObject(gitDir, shortHash)
+  if shortHash == "HEAD" then
+    return gitref.getLastCommitHash(gitDir)
+  end
+  if #shortHash == 40 then
+    return shortHash
+  end
+
+  local objectDirPath = filesystem.combine(gitDir, "objects")
+  for _, outerDir in ipairs(filesystem.list(objectDirPath)) do
+    if outerDir == shortHash:sub(1, 2) then
+      for _, innerFile in ipairs(filesystem.list(filesystem.combine(objectDirPath, outerDir))) do
+        if innerFile:sub(1, #shortHash - 2) == shortHash:sub(3) then
+          return outerDir .. innerFile
+        end
+      end
+    end
+  end
+
+  return nil, "Object not found"
 end
 
 local function decodeBlobData(data)
@@ -200,6 +222,7 @@ return {
   readObject = readObject,
   writeObject = writeObject,
   objectExists = objectExists,
+  resolveObject = resolveObject,
   decodeBlobData = decodeBlobData,
   decodeTreeData = decodeTreeData,
   decodeCommitData = decodeCommitData,
