@@ -18,22 +18,40 @@ local function createConfigHandle(configData)
     return handle
   end
   handle.get = function(key)
-    if not currentSection then
-      error("No section selected")
+    local configSection = configData
+    for i = 1, #key do
+      configSection = configSection[key[i]]
+      if not configSection then return nil end
     end
-    return (configData[currentSection] or {})[key]
+
+    return configSection
   end
   handle.write = function(filepath)
     local file = filesystem.openWriteProtected(filepath, "w")
     if not file then
       error("Failed to open config file for writing")
     end
-    for sectionName, section in pairs(configData) do
-      file:write("[" .. sectionName .. "]\n")
-      for key, value in pairs(section) do
-        file:write("\t" .. key .. " = " .. tostring(value) .. "\n")
+    local writeSection
+    writeSection = function(sectionName, sectionData)
+      local wroteHeader = false
+      for key, value in pairs(sectionData) do
+        if type(value) ~= "table" then
+          if not wroteHeader then
+            file:write("[" .. sectionName .. "]\n")
+            wroteHeader = true
+          end
+          file:write("\t" .. key .. " = " .. tostring(value) .. "\n")
+        end
+      end
+      for key, value in pairs(sectionData) do
+        if type(value) == "table" then
+          local newSectionName = (sectionName == "" and "" or (sectionName .. ".")) .. key
+          writeSection(newSectionName, value)
+        end
       end
     end
+    writeSection("", configData)
+
     file:close()
   end
 
@@ -44,6 +62,37 @@ local function createConfig()
   return createConfigHandle({})
 end
 
+local function parseSections(sectionName)
+  local parts = {}
+  local function insertIfNotEmpty(str)
+    if str ~= "" then
+      table.insert(parts, str)
+    end
+  end
+
+  local startPtr, inQuote = 1, false
+  for i = 1, #sectionName do
+    if sectionName:sub(i, i) == "\"" then
+      insertIfNotEmpty(sectionName:sub(startPtr, i - 1))
+      inQuote = not inQuote
+      startPtr = i + 1
+    elseif sectionName:sub(i, i) == " " then
+      insertIfNotEmpty(sectionName:sub(startPtr, i - 1))
+      startPtr = i + 1
+    elseif inQuote then
+      -- Ignore
+    elseif sectionName:sub(i, i) == "\"" then
+      insertIfNotEmpty(sectionName:sub(startPtr, i - 1))
+      startPtr = i + 1
+    elseif sectionName:sub(i, i) == "." then
+      insertIfNotEmpty(sectionName:sub(startPtr, i - 1))
+      startPtr = i + 1
+    end
+  end
+
+  return parts
+end
+
 local function readConfig(filepath)
   local file = assert(io.open(filepath, "r"))
   local configData = {}
@@ -51,11 +100,15 @@ local function readConfig(filepath)
   for line in file:lines() do
     local sectionName = line:match("^%[([^%]]+)%]$")
     if sectionName then
-      currentSection = sectionName
-      configData[currentSection] = configData[currentSection] or {}
+      -- TODO: Advanced stuff like includeIf
+      currentSection = configData
+      for k, part in ipairs(parseSections(sectionName)) do
+        currentSection[part] = currentSection[part] or {}
+        currentSection = currentSection[part]
+      end
     else
-      local key, value = line:match("^%s*([^%s=]+)%s*=%s*(.+)$")
-      configData[currentSection][key] = value
+      local key, value = line:match("^%s*([^%s=]+)%s*=%s*(.+)%s*$")
+      currentSection[key] = value
     end
   end
   file:close()

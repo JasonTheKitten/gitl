@@ -271,7 +271,7 @@ getTreeFileContents = function(gitDir, treeHash, file)
   contentData = gitobj.decodeTreeData(contentData)
 
   local currentPart, nextPart
-  local partAfterSlash = file:match("^.+/(.+)$")
+  local partAfterSlash = file:match("^[^/]+/(.+)$")
   if partAfterSlash then
     currentPart = file:sub(1, #file - #partAfterSlash - 1)
     nextPart = partAfterSlash
@@ -293,7 +293,7 @@ getTreeFileContents = function(gitDir, treeHash, file)
     end
   end
 
-  return nil
+  error("File not found in tree")
 end
 
 local function getWorkingDirFileContents(projectDir, file)

@@ -2,9 +2,13 @@ local driver = localRequire("driver")
 local getopts = localRequire("lib/getopts")
 local gitinit = localRequire("lib/gitl/gitinit")
 local gitclone = localRequire("lib/gitl/gitclone")
+local gitcreds = localRequire("lib/gitl/gitcreds")
 local filesystem = driver.filesystem
 
 local function getRepositoryName(repository)
+  if repository:sub(-1) == "/" then
+    repository = repository:sub(1, -2)
+  end
   local name = repository:match("([^/]+)$")
   if name and name:sub(-4) == ".git" then
     name = name:sub(1, -5)
@@ -26,10 +30,15 @@ local function cloneRepo(projectDir, repository)
   -- TODO: Config default branch
   driver.disableCursor()
   gitclone.clone(projectDir, repository, {
-    indicateProgress = function(current, total)
+    credentialsCallback = gitcreds.userInputCredentialsHelper,
+    displayStatus = print,
+    indicateProgress = function(current, total, isDone)
       local totalLen = #tostring(total)
       driver.resetCursor()
-      io.write("Cloning: " .. string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects")
+      local objectCountStr = string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects"
+      local objectPercentage = string.format("%2d", current / total * 100) .. "%"
+      local doneStr = isDone and ", done." or ""
+      io.write("Receiving objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
     end
   })
   driver.enableCursor()
@@ -40,7 +49,7 @@ local function run(arguments)
   local repository = arguments.options.arguments[1]
   local name = getRepositoryName(repository)
 
-  print("Cloning " .. repository .. " into " .. name)
+  print("Cloning into '" .. name .. "'...")
   local projectDir = filesystem.combine(filesystem.workingDir(), name)
 
   if filesystem.exists(projectDir) and not isEmptyDir(projectDir) then
@@ -49,7 +58,6 @@ local function run(arguments)
 
   xpcall(function()
     cloneRepo(projectDir, repository)
-    print("Cloned repository successfully")
   end, function(err)
     print("Failed to clone repository: " .. tostring(err))
     print("Traceback: " .. debug.traceback())

@@ -14,7 +14,7 @@ local function noIndexDiff(arguments, writeCallback)
     error("No -- specified!")
   end
   if #files < 3 then
-    error("No files specified!")
+    error("Not enough files specified!")
   end
 
   local workingDir = filesystem.workingDir()
@@ -28,22 +28,6 @@ local function noIndexDiff(arguments, writeCallback)
   local diffContent = gitdiff.formatDiffContent(diff, 3)
   
   writeCallback(diffContent)
-end
-
-local function workingDiff(gitDir, index, writeCallback)
-  local diffFormatterOptions = gitdiff.createTreeDiffFormatterOptions(writeCallback, 3)
-  local projectDir = filesystem.workingDir()
-  gitdiff.diffWorking(gitDir, projectDir, index, diffFormatterOptions)
-end
-
-local function stagedDiff(gitDir, index, writeCallback, commitOverride)
-  local diffFormatterOptions = gitdiff.createTreeDiffFormatterOptions(writeCallback, 3)
-  gitdiff.diffStaged(gitDir, index, diffFormatterOptions, commitOverride)
-end
-
-local function treeDiff(gitDir, commit1, commit2, writeCallback)
-  local diffFormatterOptions = gitdiff.createTreeDiffFormatterOptions(writeCallback, 3)
-  gitdiff.diffTree(gitDir, commit1, commit2, diffFormatterOptions)
 end
 
 -- TODO: Show diffs between specific paths
@@ -65,6 +49,8 @@ local function run(arguments)
   end
 
   local gitDir = gitrepo.locateGitRepo()
+  local projectDir = filesystem.workingDir()
+  local diffFormatterOptions = gitdiff.createTreeDiffFormatterOptions(writeCallback, 3)
 
   local hash1
   if #arguments.options.arguments >= 1 then
@@ -75,20 +61,21 @@ local function run(arguments)
     local hash2 = assert(gitcommits.determineHashFromShortName(gitDir, arguments.options.arguments[2]))
     local commit2 = gitobj.readAndDecodeObject(gitDir, hash2, "commit")
     
-    treeDiff(gitDir, commit1.tree, commit2.tree, writeCallback)
+    gitdiff.diffTree(gitDir, commit1.tree, commit2.tree, diffFormatterOptions)
     return longMessageDisplayHandle:close()
   end
   if hash1 then
-    stagedDiff(gitDir, gitdex.readIndex(filesystem.combine(gitDir, "index")), writeCallback, hash1)
+    local index = gitdex.readIndex(filesystem.combine(gitDir, "index"))
+    gitdiff.diffStaged(gitDir, index, diffFormatterOptions, hash1)
     return longMessageDisplayHandle:close()
   end
 
   local indexFile = filesystem.combine(gitDir, "index")
   local index = filesystem.exists(indexFile) and gitdex.readIndex(indexFile) or gitdex.createIndex()
   if arguments.options.cached then
-    stagedDiff(gitDir, index, writeCallback)
+    gitdiff.diffStaged(gitDir, index, diffFormatterOptions)
   else
-    workingDiff(gitDir, index, writeCallback)
+    gitdiff.diffWorking(gitDir, projectDir, index, diffFormatterOptions)
   end
 
   longMessageDisplayHandle:close()

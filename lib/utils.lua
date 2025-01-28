@@ -73,6 +73,14 @@ local function read20ByteHash(file)
   return hash
 end
 
+local function format20ByteHash(hash)
+  local formatted = ""
+  for i = 1, 20 do
+    formatted = formatted .. string.char(tonumber(hash:sub(i * 2 - 1, i * 2), 16))
+  end
+  return formatted
+end
+
 return {
   readAll = readAll,
   writeAll = writeAll,
@@ -86,5 +94,6 @@ return {
   write20ByteHash = write20ByteHash,
   read32BitNumber = read32BitNumber,
   read16BitNumber = read16BitNumber,
-  read20ByteHash = read20ByteHash
+  read20ByteHash = read20ByteHash,
+  format20ByteHash = format20ByteHash
 }

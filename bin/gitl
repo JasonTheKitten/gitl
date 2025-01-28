@@ -70,7 +70,7 @@ end
 if results.help and not results.command then
   print("Welcome to gitl, a git-based VCS for ComputerCraft, OpenComputers, and PUC Lua!")
 end
-if not ok or results.help or not results.command then
+if results.help or (ok and not results.command) then
   print(getopts.generateHelpMessage(options))
 end
 if not (ok and results.command) then

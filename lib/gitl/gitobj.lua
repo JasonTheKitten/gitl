@@ -60,7 +60,7 @@ local function objectExists(gitDir, hash)
   return filesystem.exists(objectPath)
 end
 
-local function resolveObject(gitDir, shortHash)
+local function resolveObject(gitDir, shortHash) -- TODO: Use this in clone, also add branches
   if shortHash == "HEAD" then
     return gitref.getLastCommitHash(gitDir)
   end
@@ -69,12 +69,11 @@ local function resolveObject(gitDir, shortHash)
   end
 
   local objectDirPath = filesystem.combine(gitDir, "objects")
-  for _, outerDir in ipairs(filesystem.list(objectDirPath)) do
-    if outerDir == shortHash:sub(1, 2) then
-      for _, innerFile in ipairs(filesystem.list(filesystem.combine(objectDirPath, outerDir))) do
-        if innerFile:sub(1, #shortHash - 2) == shortHash:sub(3) then
-          return outerDir .. innerFile
-        end
+  local outerDir = shortHash:sub(1, 2)
+  if filesystem.exists(filesystem.combine(objectDirPath, outerDir)) then
+    for _, innerFile in ipairs(filesystem.list(filesystem.combine(objectDirPath, outerDir))) do
+      if innerFile:sub(1, #shortHash - 2) == shortHash:sub(3) then
+        return shortHash:sub(1,2) .. innerFile
       end
     end
   end

@@ -27,11 +27,24 @@ local function setLastCommitHash(gitdir, commit)
   local headContent = readAll(headPath)
 
   if headContent:sub(1, 5) ~= "ref: " then
-    writeAll(headPath, "ref: " .. commit)
+    writeAll(headPath, commit)
     return
   end
 
   local refPath = filesystem.combine(gitdir, headContent:sub(6, -2))
+  writeAll(refPath, commit)
+end
+
+local function getBranchHash(gitdir, branch)
+  local refPath = filesystem.combine(gitdir, "refs", "heads", branch)
+  if not filesystem.exists(refPath) then
+    return nil, "Branch not found"
+  end
+  return readAll(refPath):match("([^\n]+)")
+end
+
+local function setBranchHash(gitdir, branch, commit)
+  local refPath = filesystem.combine(gitdir, "refs", "heads", branch)
   writeAll(refPath, commit)
 end
 
@@ -63,6 +76,8 @@ return {
   getRawHead = getRawHead,
   getLastCommitHash = getLastCommitHash,
   setLastCommitHash = setLastCommitHash,
+  getBranchHash = getBranchHash,
+  setBranchHash = setBranchHash,
   formatCurrentCommitRef = formatCurrentCommitRef,
   isDetachedHead = isDetachedHead
 }

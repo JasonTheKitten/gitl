@@ -1,9 +1,11 @@
 local utils = localRequire("lib/utils")
 local zlibl = localRequire("lib/zlibl")
 local gitdelt = localRequire("lib/gitl/gitdelt")
-local read32BitNumber, band, bor, shr, shl = utils.read32BitNumber, utils.band, utils.bor, utils.shr, utils.shl
+local read32BitNumber, write32BitNumber, read20ByteHash, band, bor, shr, shl =
+  utils.read32BitNumber, utils.write32BitNumber, utils.read20ByteHash, utils.band, utils.bor, utils.shr, utils.shl
 
 local BASIC_OBJECT_TYPES = { "commit", "tree", "blob", "tag" }
+local BASIC_OBJECT_TYPES_REV = { commit = 1, tree = 2, blob = 3, tag = 4 }
 
 local function decodeTypeAndLength(fileHandle)
   local byte = fileHandle:read(1):byte()
@@ -63,8 +65,61 @@ local function decodePackFile(fileHandle, pakOptions)
       error("Unsupported object type: " .. mtype)
     end
   end
+  pakOptions.indicateProgress(numObjects, numObjects, true)
+  read20ByteHash(fileHandle) -- TODO: Compare SHA1
+end
+
+local function encodeTypeAndLength(fileHandle, type, length)
+  local byte = bor(shl(type, 4), band(length, 0x0F))
+  byte = bor(byte, length > 0x0F and 0x80 or 0x00)
+  length = shr(length, 4)
+  fileHandle.write(byte)
+  while length > 0 do
+    byte = bor(byte, 0x80)
+    local nextByte = band(length, 0x7F)
+    length = shr(length, 7)
+    if length > 0 then
+      nextByte = bor(nextByte, 0x80)
+    end
+    fileHandle.write(nextByte)
+  end
+end
+
+local function encodeStandardObject(fileHandle, objType, objData)
+  encodeTypeAndLength(fileHandle, BASIC_OBJECT_TYPES_REV[objType], #objData)
+  local reader = zlibl.createStringReader(objData)
+  zlibl.encodeZlib(reader, fileHandle)
+end
+
+local function encodePackFile(fileHandle, pakOptions)
+  fileHandle:write("PACK\0\0\0\2")
+  local numObjects = pakOptions.countObjects()
+  write32BitNumber(fileHandle, numObjects)
+  local writer = zlibl.createIOWriter(fileHandle)
+  for i = 1, numObjects do
+    pakOptions.indicateProgress(i, numObjects)
+    local objType, objData = pakOptions.readObject(i)
+    encodeStandardObject(writer, objType, objData)
+  end
+  pakOptions.indicateProgress(numObjects, numObjects, true)
+end
+
+local function createBufferWriter()
+  local buffer = {}
+  local i = 0
+  return {
+    write = function(self, data)
+      i = i + #data
+      table.insert(buffer, data)
+    end,
+    finalize = function()
+      return table.concat(buffer)
+    end
+  }
 end
 
 return {
-  decodePackFile = decodePackFile
+  decodePackFile = decodePackFile,
+  encodePackFile = encodePackFile,
+  createBufferWriter = createBufferWriter
 }

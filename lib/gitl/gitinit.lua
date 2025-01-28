@@ -24,8 +24,8 @@ local function createInitConfig(gitDir)
     .set("filemode", false)
     .set("bare", false)
     .set("logallrefupdates", true)
-    .set("filemode", true) -- TODO: Should be false in other environments
-    .set("trustctime", false)
+    .set("filemode", driver.hasFileModes())
+    .set("trustctime", driver.hasPreciseTime())
   config.write(filesystem.combine(gitDir, "config"))
 end
 

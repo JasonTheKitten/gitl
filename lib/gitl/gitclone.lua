@@ -5,8 +5,8 @@ local githttp = localRequire("lib/gitl/githttp")
 local gitcheckout = localRequire("lib/gitl/gitcheckout")
 local filesystem, writeAll = driver.filesystem, utils.writeAll
 
-local function chooseBranchAndHash(projectDir, repository, defaultBranch)
-  local packfile = githttp.downloadAvailableRefs(repository)
+local function chooseBranchAndHash(repository, httpSession, defaultBranch)
+  local packfile = githttp.downloadAvailableRefs(repository, httpSession, true)
   local branchName, branchHash
   if defaultBranch then
     branchName = defaultBranch
@@ -33,10 +33,12 @@ local function clone(projectDir, repository, options)
   if repository:sub(-2) ~= "/" then
     repository = repository .. "/"
   end
+
+  local httpSession = githttp.createHttpSession(options)
   
   -- First, learn what branch/hash to clone
   local gitDir = filesystem.combine(projectDir, ".git")
-  local branchName, branchHash = chooseBranchAndHash(projectDir, repository, options.defaultBranch)
+  local branchName, branchHash = chooseBranchAndHash(repository, httpSession, options.defaultBranch)
   local newHead
   if branchName then
     local branchPath = filesystem.combine(gitDir, branchName)
@@ -52,7 +54,7 @@ local function clone(projectDir, repository, options)
     wants = { branchHash }
   }
 
-  githttp.downloadPackFile(repository, packFileOptions, {
+  githttp.downloadPackFile(repository, httpSession, packFileOptions, {
     writeObject = function(type, content)
       gitobj.writeObject(gitDir, content, type)
     end,

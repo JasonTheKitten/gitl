@@ -207,11 +207,11 @@ driver.http.get = function(url, headers)
     local body = assert(stream:get_body_as_file())
     return {
         headers = respHeaders,
-        status = respHeaders:get(":status"),
+        status = tonumber(respHeaders:get(":status")),
         body = body,
     }
 end
-driver.http.post = function(url, body, headers)
+driver.http.post = function(url, headers, body)
     local req = httpRequest.new_from_uri(url)
     req.headers:upsert(":method", "POST")
     for k, v in pairs(headers) do
@@ -247,7 +247,7 @@ driver.http.post = function(url, body, headers)
     
     return {
         headers = respHeaders,
-        status = respHeaders:get(":status"),
+        status = tonumber(respHeaders:get(":status")),
         body = respBody,
     }
 end
@@ -327,6 +327,20 @@ driver.enableCursor = function()
 end
 driver.resetCursor = function()
     io.write("\r")
+end
+
+driver.readPassword = function()
+    os.execute("stty -echo")
+    local password = io.read()
+    os.execute("stty echo")
+    return password
+end
+
+driver.hasFileModes = function()
+    return true
+end
+driver.hasPreciseTime = function()
+    return true
 end
 
 return driver
