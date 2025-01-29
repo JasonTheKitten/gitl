@@ -74,7 +74,7 @@ driver.filesystem.makeDir = function(path, recursive)
             driver.filesystem.makeDir(parent, true)
         end
     end
-    lfs.mkdir(path)
+    lfs.mkdir(driver.filesystem.collapse(path))
 end
 driver.filesystem.exists = function(path)
     return lfs.attributes(path) ~= nil

@@ -107,14 +107,16 @@ local function downloadAvailableRefs(repository, httpSession, isUpload)
 end
 
 local function writePackFileOptions(writer, options)
-  for _, v in ipairs(options.wants) do
-    writer.write("want " .. v)
-  end
-  for _, v in ipairs(options.haves) do
-    writer.write("have " .. v)
+  for k, v in ipairs(options.wants) do
+    local capabilityString = k == 1 and "\0report-status" or ""
+    writer.write("want " .. v .. capabilityString)
   end
   writer.flush()
+  for _, v in ipairs(options.haves or {}) do
+    writer.write("have " .. v)
+  end
   writer.write("done")
+  writer.flush()
 end
 
 local function downloadPackFile(repository, httpSession, options, pakOptions)
@@ -129,7 +131,9 @@ local function downloadPackFile(repository, httpSession, options, pakOptions)
   }, postBody)
 
   local function onMainMessage(nextLine)
-    if nextLine:sub(1, 4) ~= "NAK" then
+    if nextLine:sub(1, 3) == "ACK" then
+      return true
+    elseif nextLine:sub(1, 4) ~= "NAK" then
       error("Expected NAK response, got " .. nextLine)
     end
     gitpak.decodePackFile(packFileHandle.body, pakOptions)
@@ -166,7 +170,6 @@ local function uploadPackFile(repository, httpSession, refUpdates, packFile)
   
   local function onMainMessage(nextLine)
     -- TODO
-    print(nextLine)
   end
 
   parsePacketLines(packFileHandle, {

@@ -2,11 +2,12 @@
 
 local gitobj = localRequire("lib/gitl/gitobj")
 local gitcheckout = localRequire("lib/gitl/gitcheckout")
+local gitref = localRequire("lib/gitl/gitref")
 
 -- There are ways to optimize this in the future if need be
 local function compareNthValue(paths, n)
   local tail = paths[1][#(paths[1]) - n + 1]
-  for i = #paths - n, 1, -1 do
+  for i = #paths, 1, -1 do
     if paths[i][#paths[i] - n + 1] ~= tail then
       return paths[i][#paths[i] - n + 2]
     end
@@ -38,12 +39,16 @@ local function getCommitAncestors(gitDir, commitHash)
   local ancestors = {}
   local current = commitHash
   while current do
-    table.insert(ancestors, current)
     local currentCommit = gitobj.readAndDecodeObject(gitDir, current, "commit", true)
+    if currentCommit then
+      table.insert(ancestors, current)
+    end
     current = currentCommit and currentCommit.parents[1] -- TODO: What if there are multiple parents
   end
+  
   return ancestors
 end
+
 local function determineNearestAncestor(gitDir, commits)
   local paths = {}
   for _, commit in ipairs(commits) do
@@ -58,18 +63,20 @@ local function merge(gitDir, projectDir, commit1, commit2)
     return nil, "No common ancestor found"
   end
 
-  if commonAncestor == commit1 then
-    gitcheckout.switchToExistingBranch(gitDir, projectDir, commit2)
-    return "fast-forward", "Fast-Forwarding", commit2
-  end
-
   if commonAncestor == commit2 then
     return nil, "Already up-to-date"
+  end
+
+  if commonAncestor == commit1 then
+    gitcheckout.switchToExistingBranch(gitDir, projectDir, commit2)
+    gitref.setLastCommitHash(gitDir, commit2)
+    return "fast-forward", "Fast-Forwarding", commit2
   end
 
   error("Not implemented")
 end
 
 return {
-  merge = merge
+  merge = merge,
+  getCommitAncestors = getCommitAncestors,
 }

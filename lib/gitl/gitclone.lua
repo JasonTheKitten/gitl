@@ -9,8 +9,8 @@ local function chooseBranchAndHash(repository, httpSession, defaultBranch)
   local packfile = githttp.downloadAvailableRefs(repository, httpSession, true)
   local branchName, branchHash
   if defaultBranch then
-    branchName = defaultBranch
-    branchHash = packfile.branches[defaultBranch]
+    branchName = "refs/heads/" .. defaultBranch
+    branchHash = packfile.branches[branchName]
   else
     local headBranch = packfile.head
     for name, hash in pairs(packfile.branches) do

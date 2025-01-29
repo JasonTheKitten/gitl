@@ -1,14 +1,13 @@
 local driver = localRequire("driver")
 local getopts = localRequire("lib/getopts")
 local gitrepo = localRequire("lib/gitl/gitrepo")
-local gitconfig = localRequire("lib/gitl/gitconfig")
 local gitpush = localRequire("lib/gitl/gitpush")
 local gitcreds = localRequire("lib/gitl/gitcreds")
 
 local function push(arguments)
   local gitDir = gitrepo.locateGitRepo()
   local remoteName, branchName = arguments.options.arguments[1], arguments.options.arguments[2]
-  local repository = gitconfig.get(gitDir, { "remote", remoteName, "url" })
+  local repository = gitrepo.resolveRemoteRepo(gitDir, remoteName)
   print("Pushing branch " .. branchName .. " to remote " .. remoteName)
   gitpush.push(gitDir, repository, branchName, {
     credentialsCallback = gitcreds.userInputCredentialsHelper,

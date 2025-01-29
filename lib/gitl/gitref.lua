@@ -35,16 +35,20 @@ local function setLastCommitHash(gitdir, commit)
   writeAll(refPath, commit)
 end
 
-local function getBranchHash(gitdir, branch)
-  local refPath = filesystem.combine(gitdir, "refs", "heads", branch)
+local function getBranchHash(gitdir, branch, isRaw)
+  local refPath =
+    isRaw and filesystem.combine(gitdir, branch)
+    or filesystem.combine(gitdir, "refs", "heads", branch)
   if not filesystem.exists(refPath) then
     return nil, "Branch not found"
   end
   return readAll(refPath):match("([^\n]+)")
 end
 
-local function setBranchHash(gitdir, branch, commit)
-  local refPath = filesystem.combine(gitdir, "refs", "heads", branch)
+local function setBranchHash(gitdir, branch, commit, isRaw)
+  local refPath =
+    isRaw and filesystem.combine(gitdir, branch)
+    or filesystem.combine(gitdir, "refs", "heads", branch)
   writeAll(refPath, commit)
 end
 

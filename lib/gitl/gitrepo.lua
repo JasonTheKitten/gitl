@@ -1,4 +1,5 @@
 local driver = localRequire("driver")
+local gitconfig = localRequire("lib/gitl/gitconfig")
 local filesystem = driver.filesystem
 
 local function locateProjectRepo(startDir)
@@ -22,7 +23,21 @@ local function locateGitRepo(startDir)
   return filesystem.combine(projectDir, ".git")
 end
 
+local function resolveRemoteRepo(gitDir, remoteName)
+  if remoteName:find(":") then
+    return remoteName, true
+  end
+
+  remoteName = gitconfig.get(gitDir, { "remote", remoteName, "url" })
+  if not remoteName then
+    return false, "No such remote"
+  end
+
+  return remoteName, false
+end
+
 return {
   locateProjectRepo = locateProjectRepo,
-  locateGitRepo = locateGitRepo
+  locateGitRepo = locateGitRepo,
+  resolveRemoteRepo = resolveRemoteRepo
 }
