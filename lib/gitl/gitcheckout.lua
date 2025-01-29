@@ -92,10 +92,13 @@ updateWorkingDirectory = function(gitDir, objectDir, oldTree, newTree)
   end
 end
 
-local function finalizeExistingSwitch(gitDir, projectDir, newHead)
+local function finalizeExistingSwitch(gitDir, projectDir, newHead, newCommitHash)
   -- Now, update the HEAD
-  local headPath = filesystem.combine(gitDir, "HEAD")
-  writeAll(headPath, newHead)
+  if newHead then
+    local headPath = filesystem.combine(gitDir, "HEAD")
+    writeAll(headPath, newHead)
+  end
+  gitref.setLastCommitHash(gitDir, newCommitHash)
 
   -- Finally, rebuild the index
   local filter = gitignore.createFileFilter(projectDir)
@@ -119,15 +122,14 @@ local function switchToExistingBranch(gitDir, projectDir, newCommitHash, newHead
   -- Now, update the working directory
   updateWorkingDirectory(gitDir, projectDir, currentTree, newTree)
 
-  finalizeExistingSwitch(gitDir, projectDir, newHead)
+  finalizeExistingSwitch(gitDir, projectDir, newHead, newCommitHash)
 end
 
 local function freshCheckoutExistingBranch(gitDir, projectDir, newCommitHash, newHead)
   local newCommit = gitobj.readAndDecodeObject(gitDir, newCommitHash, "commit")
-  local newTree = gitobj.readAndDecodeObject(gitDir, newCommit.tree, "tree")
   directWriteObject(gitDir, projectDir, newCommit.tree, "")
 
-  finalizeExistingSwitch(gitDir, projectDir, newHead)
+  finalizeExistingSwitch(gitDir, projectDir, newHead, newCommitHash)
 end
 
 return {

@@ -22,7 +22,7 @@ local function decodeShortNameCommand(command)
     local char = command:sub(ptr, ptr)
     local byte = char:byte()
     -- Check if byte is number, uppercase, or lowercase
-    if (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 102) then
+    if (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90) or (byte >= 97 and byte <= 123) then
       hash = hash .. char
       ptr = ptr + 1
     else break end

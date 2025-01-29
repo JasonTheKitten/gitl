@@ -156,7 +156,6 @@ local function uploadPackFile(repository, httpSession, refUpdates, packFile)
   local packetLinesWriter = createPacketLinesWriter()
   writeReferenceUpdates(packetLinesWriter, refUpdates)
   local postBody = packetLinesWriter.finalize() .. packFile
-  print(postBody)
 
   local packFileURL = fixupRepositoryURL(repository) .. "git-receive-pack"
   local packFileHandle = httpSession.handle(http.post, packFileURL, {
@@ -166,6 +165,7 @@ local function uploadPackFile(repository, httpSession, refUpdates, packFile)
   }, postBody)
   
   local function onMainMessage(nextLine)
+    -- TODO
     print(nextLine)
   end
 

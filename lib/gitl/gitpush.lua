@@ -90,10 +90,6 @@ local function push(gitDir, repository, branchName, options)
   packData = packData .. utils.format20ByteHash(sha1(packData))
   print()
 
-  local outFile = io.open("packOutput.pack", "wb")
-  outFile:write(packData)
-  outFile:close()
-
   local refUpdate = {
     oldHash = remoteBranchHash or "0000000000000000000000000000000000000000",
     newHash = branchCommitHash,

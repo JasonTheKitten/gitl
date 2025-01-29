@@ -63,6 +63,8 @@ end
 local function resolveObject(gitDir, shortHash) -- TODO: Use this in clone, also add branches
   if shortHash == "HEAD" then
     return gitref.getLastCommitHash(gitDir)
+  elseif gitref.hasBranch(gitDir, shortHash) then
+    return gitref.getBranchHash(gitDir, shortHash)
   end
   if #shortHash == 40 then
     return shortHash
@@ -165,7 +167,11 @@ local function decodeObjectData(data, type)
   error("Unsupported object type")
 end
 
-local function readAndDecodeObject(gitDir, hash, expectedType)
+local function readAndDecodeObject(gitDir, hash, expectedType, optional)
+  if not objectExists(gitDir, hash) then
+    if optional then return nil end
+    error("Object not found")
+  end
   local type, data = readObject(gitDir, hash)
   if expectedType and type ~= expectedType then
     error("Unexpected object type")

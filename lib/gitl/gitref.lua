@@ -48,6 +48,11 @@ local function setBranchHash(gitdir, branch, commit)
   writeAll(refPath, commit)
 end
 
+local function hasBranch(gitdir, branch)
+  local refPath = filesystem.combine(gitdir, "refs", "heads", branch)
+  return filesystem.exists(refPath)
+end
+
 local function formatCurrentCommitRef(gitdir)
   local headPath = filesystem.combine(gitdir, "HEAD")
   if not filesystem.exists(headPath) then return end
@@ -78,6 +83,7 @@ return {
   setLastCommitHash = setLastCommitHash,
   getBranchHash = getBranchHash,
   setBranchHash = setBranchHash,
+  hasBranch = hasBranch,
   formatCurrentCommitRef = formatCurrentCommitRef,
   isDetachedHead = isDetachedHead
 }
