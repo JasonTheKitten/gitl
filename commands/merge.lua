@@ -29,7 +29,7 @@ end
 
 return {
   subcommand = "merge",
-  description = "Join two or more development histories together",
+  description = "Join two development histories together",
   options = {
     arguments = { flag = getopts.flagless.collect(getopts.stop.times(1)), params = "<commit>" },
   },

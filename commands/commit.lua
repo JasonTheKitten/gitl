@@ -48,8 +48,9 @@ local function run(arguments)
   local authorName = gitconfig.get(gitDir, "user.name")
   local authorEmail = gitconfig.get(gitDir, "user.email")
   if not authorName or not authorEmail then
-    -- TODO: Tell them how
-    error("Author name or email not set - please edit your config")
+    error("Author name or email not set - please edit your config\n"
+      .. "To set your name, run `gitl config --global set user.name <name>`\n"
+      .. "To set your email, run `gitl config --global set user.email <email>`", -1)
   end
   local author = authorName .. " <" .. authorEmail .. ">"
 

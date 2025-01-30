@@ -2,16 +2,16 @@ local gitstat = localRequire("lib/gitl/gitstat")
 local gitrepo = localRequire("lib/gitl/gitrepo")
 
 local DEFAULT_CHANGES_STAGED_MESSAGE = "Changes to be committed:\n"
-  .. "  (use \"git restore --staged <file>...\" to unstage)"
+  .. "  (use \"gitl restore --staged <file>...\" to unstage)"
 
 local DEFAULT_CHANGES_NOT_STAGED_MESSAGE = "Changes not staged for commit:\n"
-  .. "  (use \"git add/rm <file>...\" to update what will be committed)\n"
-  .. "  (use \"git restore <file>...\" to discard changes in working directory)"
+  .. "  (use \"gitl add/rm <file>...\" to update what will be committed)\n"
+  .. "  (use \"gitl restore <file>...\" to discard changes in working directory)"
 
 local UNTRACKED_FILES_MESSAGE = "Untracked files:\n"
-  .. "  (use \"git add <file>...\" to include in what will be committed)"
+  .. "  (use \"gitl add <file>...\" to include in what will be committed)"
 
-local NO_CHANGES_ADDED_MESSAGE = "no changes added to commit (use \"git add\" and/or \"git commit -a\")"
+local NO_CHANGES_ADDED_MESSAGE = "no changes added to commit (use \"gitl add\")"
 
 local function printFullStatus(allChanges)
   local treeChanges = allChanges.treeChanges

@@ -23,7 +23,7 @@ local function chooseBranchAndHash(repository, httpSession, defaultBranch)
   end
 
   if not branchHash then
-    error("Failed to determine branch and hash")
+    return nil, "Failed to determine branch and hash"
   end
 
   return branchName, branchHash
@@ -39,6 +39,10 @@ local function clone(projectDir, repository, options)
   -- First, learn what branch/hash to clone
   local gitDir = filesystem.combine(projectDir, ".git")
   local branchName, branchHash = chooseBranchAndHash(repository, httpSession, options.defaultBranch)
+  if not branchName then
+    return nil, branchHash
+  end
+  
   local newHead
   if branchName then
     local branchPath = filesystem.combine(gitDir, branchName)
@@ -66,6 +70,8 @@ local function clone(projectDir, repository, options)
 
   -- Finally, all we need to do is check out the branch
   gitcheckout.freshCheckoutExistingBranch(gitDir, projectDir, branchHash, newHead)
+
+  return true
 end
 
 return {

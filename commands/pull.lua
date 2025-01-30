@@ -16,7 +16,7 @@ local function run(arguments)
   local remoteTheirHead = "refs/heads/" .. branchName
   local remoteMyHead = isURL and "FETCH_HEAD" or "refs/remotes/" .. remoteName .. "/" .. branchName
 
-  gitfetch.fetch(gitDir, repository, {
+  local ok, err = gitfetch.fetch(gitDir, repository, {
     credentialsCallback = gitcreds.userInputCredentialsHelper,
     fetchRemoteHeads = { remoteTheirHead },
     fetchLocalHeads = { remoteMyHead },
@@ -30,6 +30,10 @@ local function run(arguments)
       io.write("Receiving objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
     end
   })
+
+  if not ok then
+    error("Failed to fetch: " .. tostring(err), -1)
+  end
 
   local currentCommit = gitref.getLastCommitHash(gitDir)
   local nextCommit = assert(gitref.getBranchHash(gitDir, remoteMyHead, true))

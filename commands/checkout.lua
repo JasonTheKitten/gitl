@@ -9,7 +9,7 @@ local filesystem, readAll = driver.filesystem, utils.readAll
 
 local DEFAULT_OVERWITE_ERROR_MESSAGE =
   "You have local changes that could be overwritten by the checkout!\n"
-  .. "Please commit your changes or stash them before you switch branches."
+  .. "Please commit your changes before you switch branches."
 
 -- TODO: Better, more lenient conflict handling
 -- Also, what if new branch would overwrite a gitignore'd file?
@@ -42,7 +42,7 @@ local function switchToExistingBranch(gitDir, branchName, arguments)
   else
     local refPath = filesystem.combine(gitDir, "refs/heads", branchName)
     if not filesystem.exists(refPath) then
-      error("Branch does not exist: " .. branchName)
+      error("Branch does not exist: " .. branchName, -1)
     end
     newCommitHash = readAll(refPath):match("([^\n]+)")
     newHead = "ref: refs/heads/" .. branchName
@@ -62,9 +62,12 @@ local function run(arguments)
   -- Start with the simplist case
   if arguments.options.branch then
     if #arguments.options.arguments == 0 then
-      error("No branch name specified")
+      error("No branch name specified", -1)
     end
-    gitcheckout.switchToNewBranch(gitDir, arguments.options.arguments[1])
+    local ok, err = gitcheckout.switchToNewBranch(gitDir, arguments.options.arguments[1])
+    if not ok then
+      error(err, -1)
+    end
     return
   end
 

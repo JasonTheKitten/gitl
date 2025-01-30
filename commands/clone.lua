@@ -15,7 +15,7 @@ local function getRepositoryName(repository)
     name = name:sub(1, -5)
   end
   if not name or name == "" then
-    error("Invalid repository name")
+    error("Invalid repository name", -1)
   end
   return name
 end
@@ -33,20 +33,23 @@ local function cloneRepo(projectDir, repository)
   gitconfig.set(gitDir, "remote.origin.url", repository)
 
   driver.disableCursor()
-  gitclone.clone(projectDir, repository, {
+  local ok, err = gitclone.clone(projectDir, repository, {
     credentialsCallback = gitcreds.userInputCredentialsHelper,
     displayStatus = print,
     indicateProgress = function(current, total, isDone)
       local totalLen = #tostring(total)
       driver.resetCursor()
       local objectCountStr = string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects"
-      local objectPercentage = string.format("%2d", current / total * 100) .. "%"
+      local objectPercentage = string.format("%2d", math.floor(current / total * 100)) .. "%"
       local doneStr = isDone and ", done." or ""
       io.write("Receiving objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
     end
   })
   driver.enableCursor()
   print()
+  if not ok then
+    error("Failed to clone repository: " .. tostring(err), -1)
+  end
 end
 
 local function run(arguments)
@@ -57,7 +60,7 @@ local function run(arguments)
   local projectDir = filesystem.combine(filesystem.workingDir(), name)
 
   if filesystem.exists(projectDir) and not isEmptyDir(projectDir) then
-    error("Directory " .. name .. " already exists and is not empty")
+    error("Directory " .. name .. " already exists and is not empty", -1)
   end
 
   xpcall(function()

@@ -11,7 +11,7 @@ local function chooseBranchAndHash(repository, httpSession, branchRef)
   local branchHash = packfile.branches[branchRef]
 
   if not branchHash then
-    error("Failed to determine branch and hash")
+    return nil, "Failed to determine branch and hash"
   end
 
   return branchHash
@@ -26,7 +26,11 @@ local function fetch(gitDir, repository, options)
 
   local branches = {}
   for k, v in ipairs(options.fetchRemoteHeads) do
-    branches[v] = chooseBranchAndHash(repository, httpSession, v)
+    local branchHash, err = chooseBranchAndHash(repository, httpSession, v)
+    if not branchHash then
+      return nil, branchHash
+    end
+    branches[v] = branchHash
   end
 
   local wants = {}
@@ -75,6 +79,8 @@ local function fetch(gitDir, repository, options)
     filesystem.makeDir(filesystem.combine(branchPath, ".."), true)
     writeAll(branchPath, branches[remoteHead] .. "\n")
   end
+  
+  return true
 end
 
 return {

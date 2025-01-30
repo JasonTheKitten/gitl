@@ -1,6 +1,11 @@
 #!/bin/luajit
 -- Some environments do not have /usr/bin/env, so we just specify the direct path
 
+local originalEnv = {}
+for k, v in pairs(_ENV or _G) do
+  originalEnv[k] = v
+end
+
 local cache = {}
 local localRequire
 function localRequire(name)
@@ -8,18 +13,29 @@ function localRequire(name)
     return cache[name]
   end
 
-  local scriptPath = debug.getinfo(1, "S").source:sub(2)
-  local scriptDir = (scriptPath:match("(.*/)") or "./") .. "../"
+  local scriptPath, scriptDir
+  if originalEnv.PROGRAM_LOCATION then
+    scriptDir = _ENV.PROGRAM_LOCATION
+  else
+    scriptPath = debug.getinfo(1, "S").source:sub(2)
+    scriptDir = (scriptPath:match("(.*/)") or "./") .. "../"
+  end
+
   local env = {}
-  for k, v in pairs(_G) do
+  for k, v in pairs(originalEnv) do
     env[k] = v
   end
   env.localRequire = localRequire
 
   local loadName = name
   if loadName == "driver" then
-    loadName = "drivers/driver_puc"
+    if originalEnv.DRIVER_NAME then
+      loadName = "drivers/" .. _ENV.DRIVER_NAME
+    else
+      loadName = "drivers/driver_puc"
+    end
   end
+  
   local ok, err = loadfile(scriptDir .. loadName .. ".lua", "t", env)
   if not ok then
     error(err)
@@ -58,7 +74,7 @@ optionsSpec.config2 = {
   multiple = getopts.stop.times(1)
 }
 optionsSpec.config3 = {
-  flag = "configurationFile", short = "C", description = "Specify a configuration file", params = "<file>",
+  flag = "configuration-file", short = "C", description = "Specify a configuration file", params = "<file>",
   multiple = getopts.stop.times(1)
 }
 
@@ -76,11 +92,13 @@ end
 if ok and (not results.command) and not (results.help) then
   print("gitl requires a subcommand!")
 end
-if results.help and not results.command then
-  print("Welcome to gitl, a git-based VCS for ComputerCraft, OpenComputers, and PUC Lua!")
-end
 if results.help or (ok and not results.command) then
-  print(getopts.generateHelpMessage(options))
+  local longMessageDisplayHandle = driver.openLongMessageDisplay()
+  if results.help and not results.command then
+    longMessageDisplayHandle:write("Welcome to gitl, a git-based VCS for ComputerCraft, OpenComputers, and PUC Lua!")
+  end
+  longMessageDisplayHandle:write(getopts.generateHelpMessage(options))
+  longMessageDisplayHandle:close()
 end
 if not (ok and results.command) then
   return

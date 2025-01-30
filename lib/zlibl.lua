@@ -1,6 +1,7 @@
 -- Deflate
 -- https://datatracker.ietf.org/doc/html/rfc1951
 -- TODO: Fix encoding empty files
+local driver = localRequire("driver")
 local utils = localRequire("lib/utils")
 local timings = localRequire("lib/timings")
 local shl, shr, band, bor = utils.shl, utils.shr, utils.band, utils.bor
@@ -426,6 +427,7 @@ local function deflateBlock(reader, bitWriter, lookupBuffer, size, blockCompress
 
   -- For now, I'll assume input is at least 3 chars
   while strPtr <= #input do
+    driver.preventTimeout() -- Needed for environments that have timeouts
     local byte = input:byte(strPtr)
     charLenFreq[byte] = (charLenFreq[byte] or 0) + 1
 
@@ -834,6 +836,7 @@ local function inflate(reader, writer)
   local bitReader = createBitReader(reader)
   local lastBlockReached = false
   while not lastBlockReached do
+    driver.preventTimeout() -- Needed for environments that have timeouts
     local bfinal = bitReader.read(1)
     local btype = bitReader.read(2)
     if btype == 0 then

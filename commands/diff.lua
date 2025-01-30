@@ -11,10 +11,10 @@ local filesystem, readAll = driver.filesystem, utils.readAll
 local function noIndexDiff(arguments, writeCallback)
   local files = arguments.options.arguments
   if files[1] ~= "--" then
-    error("No -- specified!")
+    error("No -- specified!", -1)
   end
   if #files < 3 then
-    error("Not enough files specified!")
+    error("Not enough files specified!", -1)
   end
 
   local workingDir = filesystem.workingDir()

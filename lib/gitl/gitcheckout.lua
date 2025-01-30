@@ -17,7 +17,7 @@ local function switchToNewBranch(gitDir, branch)
 
   local branchPath = filesystem.combine(branchesDir, branch)
   if filesystem.exists(branchPath) then
-    error("Branch already exists: " .. branch)
+    return nil, "Branch already exists: " .. branch
   end
 
   local currentCommit = gitref.getLastCommitHash(gitDir)
@@ -28,6 +28,8 @@ local function switchToNewBranch(gitDir, branch)
 
   local headPath = filesystem.combine(gitDir, "HEAD")
   writeAll(headPath, "ref: refs/heads/" .. branch)
+
+  return true
 end
 
 -- The (not so) fun part

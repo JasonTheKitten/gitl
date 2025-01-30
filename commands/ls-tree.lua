@@ -11,7 +11,7 @@ function displayTree(gitDir, hash, recursive, fullName)
   else
     otype, content = gitobj.readObject(gitDir, hash)
     if otype ~= "tree" then
-      error("Object is not a tree")
+      error("Object is not a tree", -1)
     end
     content = gitobj.decodeTreeData(content)
   end

@@ -346,4 +346,6 @@ driver.hasPreciseTime = function()
     return true
 end
 
+driver.preventTimeout = function() end
+
 return driver

@@ -5,7 +5,7 @@ local gitrepo = localRequire("lib/gitl/gitrepo")
 
 local function setUrl(gitDir, name, newUrl)
   if not gitconfig.has(gitDir, { "remote", name, "url" }) then
-    error("error: No such remote: \"" .. name .. "\"")
+    error("error: No such remote: \"" .. name .. "\"", -1)
   end
   gitconfig.set(gitDir, { "remote", name, "url" }, newUrl)
 end
@@ -16,14 +16,14 @@ end
 
 local function add(gitDir, name, url)
   if gitconfig.has(gitDir, { "remote", name, "url" }) then
-    error("error: remote \"" .. name .. "\" already exists")
+    error("error: remote \"" .. name .. "\" already exists", -1)
   end
   gitconfig.set(gitDir, { "remote", name, "url" }, url)
 end
 
 local function remove(gitDir, name)
   if not gitconfig.has(gitDir, { "remote", name, "url" }) then
-    error("error: No such remote: \"" .. name .. "\"")
+    error("error: No such remote: \"" .. name .. "\"", -1)
   end
   gitconfig.remove(gitDir, { "remote", name, "url" })
 end
@@ -31,10 +31,10 @@ end
 local function rename(gitDir, oldName, newName)
   local url = gitconfig.get(gitDir, { "remote", oldName, "url" })
   if not url then
-    error("error: No such remote: \"" .. oldName .. "\"")
+    error("error: No such remote: \"" .. oldName .. "\"", -1)
   end
   if gitconfig.has(gitDir, { "remote", newName, "url" }) then
-    error("error: remote \"" .. newName .. "\" already exists")
+    error("error: remote \"" .. newName .. "\" already exists", -1)
   end
 
   gitconfig.remove(gitDir, { "remote", oldName, "url" })

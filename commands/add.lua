@@ -11,7 +11,7 @@ local function run(arguments)
 
   local files = arguments.options.arguments
   if #files == 0 then
-    error("No files specified")
+    error("No files specified", -1)
   end
 
   local filter = gitignore.createFileFilter(projectDir)
@@ -22,7 +22,7 @@ local function run(arguments)
   for _, file in ipairs(files) do
     local path = filesystem.combine(filesystem.workingDir(), file)
     if not filesystem.exists(path) then
-      error("File does not exist: " .. file)
+      error("File does not exist: " .. file, -1)
     end
     local indexPath = filesystem.collapse(
       filesystem.combine(

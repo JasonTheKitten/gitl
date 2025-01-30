@@ -36,7 +36,7 @@ end
 local function unset(gitDir, customConfigList, name)
   local oldValue = gitconfig.get(gitDir, name, customConfigList)
   if not oldValue then
-    error("error: key does not exist: " .. name)
+    error("error: key does not exist: " .. name, -1)
   end
   gitconfig.remove(gitDir, name, customConfigList)
 end
@@ -44,11 +44,11 @@ end
 local function renameSection(gitDir, customConfigList, oldName, newName)
   local oldValue = gitconfig.get(gitDir, oldName, customConfigList)
   if not oldValue or (type(oldValue) ~= "table") then
-    error("error: section does not exist: " .. oldName)
+    error("error: section does not exist: " .. oldName, -1)
   end
   local newValue = gitconfig.get(gitDir, newName, customConfigList)
   if newValue then
-    error("error: section already exists: " .. newName)
+    error("error: section already exists: " .. newName, -1)
   end
   gitconfig.set(gitDir, newName, oldValue, customConfigList)
 end
@@ -56,7 +56,7 @@ end
 local function removeSection(gitDir, customConfigList, name)
   local oldValue = gitconfig.get(gitDir, name, customConfigList)
   if not oldValue or (type(oldValue) ~= "table") then
-    error("error: section does not exist: " .. name)
+    error("error: section does not exist: " .. name, -1)
   end
   gitconfig.remove(gitDir, name, customConfigList)
 end
@@ -75,12 +75,12 @@ local function run(arguments)
 
   local command = arguments.options.command
   if not command then
-    error("error: missing subcommand")
+    error("error: missing subcommand", -1)
   end
 
   local commandFunction = commandList[command]
   if not commandFunction then
-    error("error: unknown subcommand: " .. command)
+    error("error: unknown subcommand: " .. command, -1)
   end
 
   local customConfigList = {}
@@ -96,7 +96,7 @@ local function run(arguments)
   end
   
   if #customConfigList > 1 then
-    error("error: cannot use multiple scope flags")
+    error("error: cannot use multiple scope flags", -1)
   end
 
   local myArguments = arguments.options[command].options.arguments
