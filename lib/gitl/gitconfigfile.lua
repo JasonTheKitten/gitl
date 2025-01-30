@@ -5,12 +5,32 @@ local function createConfigHandle(configData)
   local currentSection
   local handle = {}
 
+  local function getSectionByPath(path, autoCreate)
+    local configSection = configData
+    for i = 1, #path - 1 do
+      if autoCreate and not configSection[path[i]] then
+        configSection[path[i]] = configSection[path[i]] or {}
+      end
+      configSection = configSection[path[i]]
+      if not configSection then return nil end
+    end
+
+    return configSection
+  end
+
   handle.section = function(sectionName)
     currentSection = sectionName
     configData[sectionName] = configData[sectionName] or {}
     return handle
   end
   handle.set = function(key, value)
+    if type(key) == "table" then
+      local configSection = getSectionByPath(key, true)
+      configSection[key[#key]] = value
+
+      return handle
+    end
+
     if not currentSection then
       error("No section selected")
     end
@@ -45,7 +65,7 @@ local function createConfigHandle(configData)
       end
       for key, value in pairs(sectionData) do
         if type(value) == "table" then
-          local newSectionName = (sectionName == "" and "" or (sectionName .. ".")) .. key
+          local newSectionName = sectionName == "" and key or (sectionName .. (" \"" .. key .. "\""))
           writeSection(newSectionName, value)
         end
       end
@@ -89,6 +109,7 @@ local function parseSections(sectionName)
       startPtr = i + 1
     end
   end
+  insertIfNotEmpty(sectionName:sub(startPtr))
 
   return parts
 end
@@ -98,14 +119,16 @@ local function readConfig(filepath)
   local configData = {}
   local currentSection
   for line in file:lines() do
-    local sectionName = line:match("^%[([^%]]+)%]$")
-    if sectionName then
+    if (line:sub(1, 1) == "[") and (line:sub(-1) == "]") then
       -- TODO: Advanced stuff like includeIf
+      local sectionName = line:sub(2, -2)
       currentSection = configData
       for k, part in ipairs(parseSections(sectionName)) do
         currentSection[part] = currentSection[part] or {}
         currentSection = currentSection[part]
       end
+    elseif line == "" then
+      -- Ignore
     else
       local key, value = line:match("^%s*([^%s=]+)%s*=%s*(.+)%s*$")
       currentSection[key] = value
