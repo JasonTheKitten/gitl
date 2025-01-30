@@ -35,6 +35,7 @@ end
 local driver = localRequire("driver")
 local timings = localRequire("lib/timings")
 local getopts = localRequire("lib/getopts")
+local gitconfig = localRequire("lib/gitl/gitconfig")
 
 local filesystem = driver.filesystem
 
@@ -52,6 +53,14 @@ end
 
 optionsSpec.help = { flag = "help", short = "h", description = "Display this help message" }
 optionsSpec.timings = { flag = "timings", description = "Display timing information (for profiling)" }
+optionsSpec.config2 = {
+  flag = "configuration", short = "c", description = "Specify a configuration value", params = "<name>=<value>",
+  multiple = getopts.stop.times(1)
+}
+optionsSpec.config3 = {
+  flag = "configurationFile", short = "C", description = "Specify a configuration file", params = "<file>",
+  multiple = getopts.stop.times(1)
+}
 
 local options = getopts.options(optionsSpec)
 local ok, results = getopts.parse(options, { ... }, {
@@ -81,6 +90,19 @@ if results.timings then
   timings.enableTimings("encodeZlib", 100)
   timings.enableTimings("decodeZlib", 100)
   timings.enableTimings("applyDelta", 100)
+end
+
+if results.config2 then
+  local key, value = results.config2.arguments[1]:match("^(.-)=(.*)$")
+  if not key then
+    print("Invalid configuration value")
+    return
+  end
+  gitconfig.set(nil, key, value, { gitconfig.getSessionConfig() })
+end
+if results.config3 then
+  local file = results.config3.arguments[1]
+  gitconfig.loadDefaultConfig(file)
 end
 
 local myCommand = subcommands[results.command]

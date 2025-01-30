@@ -2,7 +2,7 @@ local driver = localRequire("driver")
 local filesystem = driver.filesystem
 
 local function createConfigHandle(configData)
-  local currentSection
+  local currentSection, filepath
   local handle = {}
 
   local function getSectionByPath(path, autoCreate)
@@ -46,7 +46,15 @@ local function createConfigHandle(configData)
 
     return configSection
   end
-  handle.write = function(filepath)
+  handle.path = function(path)
+    filepath = path
+    return handle
+  end
+  handle.write = function()
+    if not filepath then
+      return
+    end
+
     local file = filesystem.openWriteProtected(filepath, "w")
     if not file then
       error("Failed to open config file for writing")
@@ -136,7 +144,7 @@ local function readConfig(filepath)
   end
   file:close()
 
-  return createConfigHandle(configData)
+  return createConfigHandle(configData).path(filepath)
 end
 
 return {

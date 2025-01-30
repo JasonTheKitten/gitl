@@ -3,6 +3,7 @@ local getopts = localRequire("lib/getopts")
 local gitinit = localRequire("lib/gitl/gitinit")
 local gitclone = localRequire("lib/gitl/gitclone")
 local gitcreds = localRequire("lib/gitl/gitcreds")
+local gitconfig = localRequire("lib/gitl/gitconfig")
 local filesystem = driver.filesystem
 
 local function getRepositoryName(repository)
@@ -27,7 +28,10 @@ end
 local function cloneRepo(projectDir, repository)
   filesystem.makeDir(projectDir)
   gitinit.init(projectDir)
-  -- TODO: Config default branch
+  
+  local gitDir = filesystem.combine(projectDir, ".git")
+  gitconfig.set(gitDir, "remote.origin.url", repository)
+
   driver.disableCursor()
   gitclone.clone(projectDir, repository, {
     credentialsCallback = gitcreds.userInputCredentialsHelper,

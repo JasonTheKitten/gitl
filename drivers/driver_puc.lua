@@ -195,6 +195,9 @@ driver.filesystem.openWriteProtected = function(path, mode)
     end
     return newFile, err
 end
+driver.filesystem.resolve = function(path)
+    return path
+end
 
 driver.http = {}
 driver.http.get = function(url, headers)

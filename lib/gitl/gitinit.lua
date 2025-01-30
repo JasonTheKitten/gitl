@@ -19,6 +19,7 @@ end
 
 local function createInitConfig(gitDir)
   local config = gitconfigfile.createConfig()
+    .path(filesystem.combine(gitDir, "config"))
   config.section("core")
     .set("repositoryformatversion", 0)
     .set("filemode", false)
@@ -26,7 +27,7 @@ local function createInitConfig(gitDir)
     .set("logallrefupdates", true)
     .set("filemode", driver.hasFileModes())
     .set("trustctime", driver.hasPreciseTime())
-  config.write(filesystem.combine(gitDir, "config"))
+  config.write()
 end
 
 local function createDescriptionFile(gitDir)
