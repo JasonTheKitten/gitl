@@ -1,3 +1,5 @@
+local computer = pcall(require, "computer")
+
 local function readAll(file)
   local f = assert(io.open(file, "r"))
   local content = f:read("*a")
@@ -12,7 +14,11 @@ local function writeAll(file, content)
 end
 
 local function evalOp(code)
-  return assert(load("return function(a, b) return a " .. code .. " b end"))()
+  if computer then
+    return assert(load("return function(a, b) return math.floor(a) " .. code .. " math.floor(b) end"))()
+  else
+    return assert(load("return function(a, b) return a " .. code .. " b end"))()
+  end
 end
 
 local shl, shr, band, bor, bnot

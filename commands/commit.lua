@@ -55,7 +55,7 @@ local function run(arguments)
   local author = authorName .. " <" .. authorEmail .. ">"
 
   local commitTime, commitOffset = driver.timeAndOffset()
-  local commitTimeFormatted = os.date(nil, commitTime)
+  local commitTimeFormatted = os.date("%a %b %d %H:%M:%S %Y", commitTime)
 
   local additionalEditMessage = "\n#\n# Date: " .. commitTimeFormatted .. "\n# Author: " .. author .. "\n#\n"
 

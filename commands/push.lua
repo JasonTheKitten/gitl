@@ -16,7 +16,7 @@ local function push(arguments)
       local totalLen = #tostring(total)
       driver.resetCursor()
       local objectCountStr = string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects"
-      local objectPercentage = string.format("%2d", current / total * 100) .. "%"
+      local objectPercentage = string.format("%2d", math.floor(current / total * 100)) .. "%"
       local doneStr = isDone and ", done." or ""
       io.write("Compressing objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
     end

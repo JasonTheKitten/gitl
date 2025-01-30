@@ -48,7 +48,7 @@ local function cloneRepo(projectDir, repository)
   driver.enableCursor()
   print()
   if not ok then
-    error("Failed to clone repository: " .. tostring(err), -1)
+    error(tostring(err), -1)
   end
 end
 

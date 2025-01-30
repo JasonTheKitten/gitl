@@ -83,7 +83,7 @@ local function formatCommits(commits, writer)
     -- TODO: Color, also helpfully determine applicable branches
     writer:write("commit " .. hash .. "\n")
     writer:write("Author: " .. commit.author .. "\n")
-    writer:write("Date:   " .. os.date(nil, commit.authorTime) .. " " .. commit.authorTimezoneOffset .. "\n\n")
+    writer:write("Date:   " .. os.date("%a %b %d %H:%M:%S %Y", commit.authorTime) .. " " .. commit.authorTimezoneOffset .. "\n\n")
     writer:write("    " .. commit.message:gsub("\n", "\n    ") .. "\n")
     -- TODO: What if the commit date differs?
   end

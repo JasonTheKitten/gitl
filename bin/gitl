@@ -95,7 +95,7 @@ end
 if results.help or (ok and not results.command) then
   local longMessageDisplayHandle = driver.openLongMessageDisplay()
   if results.help and not results.command then
-    longMessageDisplayHandle:write("Welcome to gitl, a git-based VCS for ComputerCraft, OpenComputers, and PUC Lua!")
+    longMessageDisplayHandle:write("Welcome to gitl, a git-based VCS for ComputerCraft, OpenComputers, and PUC Lua!\n")
   end
   longMessageDisplayHandle:write(getopts.generateHelpMessage(options))
   longMessageDisplayHandle:close()
