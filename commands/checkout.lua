@@ -5,11 +5,26 @@ local gitrepo = localRequire("lib/gitl/gitrepo")
 local gitstat = localRequire("lib/gitl/gitstat")
 local gitobj = localRequire("lib/gitl/gitobj")
 local gitcheckout = localRequire("lib/gitl/gitcheckout")
+local gitcommits = localRequire("lib/gitl/gitcommits")
+local gitconfig = localRequire("lib/gitl/gitconfig")
 local filesystem, readAll = driver.filesystem, utils.readAll
 
 local DEFAULT_OVERWITE_ERROR_MESSAGE =
   "You have local changes that could be overwritten by the checkout!\n"
   .. "Please commit your changes before you switch branches."
+
+local DETACHED_HEAD_MESSAGE = [[Note: switching to '$BRANCH_NAME'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by switching back to a branch.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command. Example:
+
+  git checkout -b <new-branch-name>
+
+Turn off this advice by setting config variable advice.detachedHead to false]]
 
 -- TODO: Better, more lenient conflict handling
 -- Also, what if new branch would overwrite a gitignore'd file?
@@ -56,6 +71,16 @@ local function switchToExistingBranch(gitDir, branchName, arguments)
   gitcheckout.switchToExistingBranch(gitDir, projectDir, newCommitHash, newHead)
 end
 
+local function getBranchName(gitDir, arguments)
+  local branchName, isAttached = gitcommits.determineHashFromShortName(gitDir, arguments.options.arguments[1], true)
+  if not isAttached and not gitconfig.get(gitDir, "advice.detachedHead") then
+    local message = DETACHED_HEAD_MESSAGE:gsub("$BRANCH_NAME", branchName)
+    print(message)
+  end
+
+  return branchName
+end
+
 local function run(arguments)
   local gitDir = assert(gitrepo.locateGitRepo())
 
@@ -64,7 +89,9 @@ local function run(arguments)
     if #arguments.options.arguments == 0 then
       error("No branch name specified", -1)
     end
-    local ok, err = gitcheckout.switchToNewBranch(gitDir, arguments.options.arguments[1])
+
+    local branchName = arguments.options.arguments[1]
+    local ok, err = gitcheckout.switchToNewBranch(gitDir, branchName)
     if not ok then
       error(err, -1)
     end
@@ -76,7 +103,7 @@ local function run(arguments)
   end
 
   -- Now the hard one
-  local branchName = arguments.options.arguments[1]
+  local branchName = getBranchName(gitDir, arguments)
   switchToExistingBranch(gitDir, branchName, arguments)
 end
 

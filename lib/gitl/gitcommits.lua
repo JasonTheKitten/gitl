@@ -70,7 +70,7 @@ local function getNthAncestor(gitDir, hash, n)
   return parent
 end
 
-local function determineHashFromShortName(gitDir, shortName)
+local function determineHashFromShortName(gitDir, shortName, preserveBranch)
   local commands, err = decodeShortNameCommand(shortName)
   if not commands then
     return nil, err
@@ -78,6 +78,10 @@ local function determineHashFromShortName(gitDir, shortName)
 
   local hash
   hash, err = gitobj.resolveObject(gitDir, commands[1])
+  if #commands == 1 and err == "branch" and preserveBranch then
+    return commands[1], true
+  end
+
   for i = 2, #commands, 2 do
     local command = commands[i]
     if command:sub(1, 1) == "~" then

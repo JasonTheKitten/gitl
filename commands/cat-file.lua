@@ -1,11 +1,13 @@
 local getopts = localRequire("lib/getopts")
 local gitobj = localRequire("lib/gitl/gitobj")
 local gitrepo = localRequire("lib/gitl/gitrepo")
+local gitcommits = localRequire("lib/gitl/gitcommits")
 
 local function run(arguments)
   local gitDir = assert(gitrepo.locateGitRepo())
   local realArguments = arguments.options.arguments
   local objectType, hash = realArguments[1], realArguments[2]
+  hash = assert(gitcommits.determineHashFromShortName(gitDir, hash))
   local type, content = gitobj.readObject(gitDir, hash)
   if type ~= objectType then
     print("Warning: Object type mismatch: " .. type .. " != " .. objectType)

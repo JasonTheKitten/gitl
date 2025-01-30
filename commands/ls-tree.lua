@@ -1,6 +1,7 @@
 local getopts = localRequire("lib/getopts")
 local gitobj = localRequire("lib/gitl/gitobj")
 local gitrepo = localRequire("lib/gitl/gitrepo")
+local gitcommits = localRequire("lib/gitl/gitcommits")
 
 local displayTree
 function displayTree(gitDir, hash, recursive, fullName)
@@ -30,7 +31,7 @@ end
 
 local function run(arguments)
   local gitDir = assert(gitrepo.locateGitRepo())
-  local hash = arguments.options.arguments[1]
+  local hash = gitcommits.determineHashFromShortName(gitDir, arguments.options.arguments[1])
   local recursive = arguments.options.recursive
   displayTree(gitDir, hash, recursive, "")
 end

@@ -138,3 +138,4 @@ export PATH=$PATH":/home/jason/Code/gitl/bin"]]
 end
 
 print("Installation complete! Reboot to add gitl to your path.")
+print("For future updates, cd into the installation directory and `run gitl pull origin main`.")

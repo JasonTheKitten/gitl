@@ -64,7 +64,7 @@ local function resolveObject(gitDir, shortHash) -- TODO: Use this in clone, also
   if shortHash == "HEAD" then
     return gitref.getLastCommitHash(gitDir)
   elseif gitref.hasBranch(gitDir, shortHash) then
-    return gitref.getBranchHash(gitDir, shortHash)
+    return gitref.getBranchHash(gitDir, shortHash), "branch"
   end
   if #shortHash == 40 then
     return shortHash

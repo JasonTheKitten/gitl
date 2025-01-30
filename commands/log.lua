@@ -39,11 +39,13 @@ end
 local function detectCommits(gitDir, allFiles)
   local currentRef = gitref.getLastCommitHash(gitDir)
   local commitRefList = {}
+  local allCommits = {}
   local currentRefBacklog = { currentRef }
   while #currentRefBacklog > 0 do
     currentRef = table.remove(currentRefBacklog)
-    local commit = gitobj.readAndDecodeObject(gitDir, currentRef, "commit", true)
+    local commit = not allCommits[currentRef] and gitobj.readAndDecodeObject(gitDir, currentRef, "commit", true)
     if commit then
+      allCommits[currentRef] = commit
       table.insert(commitRefList, currentRef)
       for _, parent in pairs(commit.parents) do
         table.insert(currentRefBacklog, parent)
@@ -55,7 +57,7 @@ local function detectCommits(gitDir, allFiles)
   local lastVersions = {}
   for i = #commitRefList, 1, -1 do
     local commitRef = commitRefList[i]
-    local commit = gitobj.readAndDecodeObject(gitDir, commitRef, "commit")
+    local commit = allCommits[commitRef]
     local tree = gitobj.readAndDecodeObject(gitDir, commit.tree, "tree")
     local insertCommit = false
     for _, file in ipairs(allFiles) do
@@ -72,6 +74,8 @@ local function detectCommits(gitDir, allFiles)
       })
     end
   end
+
+  table.sort(commits, function(a, b) return a.commit.authorTime > b.commit.authorTime end)
 
   return commits
 end

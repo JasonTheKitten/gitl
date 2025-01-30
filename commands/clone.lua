@@ -54,7 +54,7 @@ end
 
 local function run(arguments)
   local repository = arguments.options.arguments[1]
-  local name = getRepositoryName(repository)
+  local name = arguments.options.arguments[2] or getRepositoryName(repository)
 
   print("Cloning into '" .. name .. "'...")
   local projectDir = filesystem.combine(filesystem.workingDir(), name)
@@ -77,7 +77,7 @@ return {
   subcommand = "clone",
   description = "Clone a remote repository",
   options = {
-    arguments = { flag = getopts.flagless.collect(getopts.stop.times(1)), params = "<repository>" }
+    arguments = { flag = getopts.flagless.collect(getopts.stop.remaining), params = "<repository> [<name>]" }
   },
   run = run
 }
