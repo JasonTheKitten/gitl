@@ -9,6 +9,7 @@ for k, v in pairs(_G) do
 end
 
 ---@diagnostic disable: undefined-global
+---@diagnostic disable-next-line: undefined-field
 if os.pullEvent then
   env.WORKING_DIR = shell.dir()
   env.DRIVER_NAME = "driver_cc"

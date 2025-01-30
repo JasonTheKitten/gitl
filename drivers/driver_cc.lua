@@ -89,8 +89,11 @@ end
 
 driver.http = {}
 
-local function wrapHTTPResponse(handle, _, handle2)
+local function wrapHTTPResponse(handle, err, handle2)
   handle = handle or handle2
+  if not handle then
+    error(err)
+  end
 
   local response = {
     status = handle.getResponseCode(),
