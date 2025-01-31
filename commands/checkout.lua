@@ -73,7 +73,7 @@ end
 
 local function getBranchName(gitDir, arguments)
   local branchName, isAttached = gitcommits.determineHashFromShortName(gitDir, arguments.options.arguments[1], true)
-  if not isAttached and not gitconfig.get(gitDir, "advice.detachedHead") then
+  if not isAttached and gitconfig.get(gitDir, "advice.detachedHead", true, nil, "boolean") then
     local message = DETACHED_HEAD_MESSAGE:gsub("$BRANCH_NAME", branchName)
     print(message)
   end

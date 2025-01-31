@@ -81,13 +81,25 @@ local function keyParts(key)
   return parts
 end
 
-local function getConfigValue(gitDir, key, default, defaultConfigOverrides)
+local function convertType(value, type)
+  if type == "boolean" then
+    return value == "true"
+  elseif type == "number" then
+    return tonumber(value)
+  end
+
+  return value
+end
+
+local function getConfigValue(gitDir, key, default, defaultConfigOverrides, type)
   local parts = keyParts(key)
 
   return withConfigs(gitDir, function(configs)
     for _, config in ipairs(configs) do
       local value = config.get(parts)
-      if value then return value end
+      if value then
+        return convertType(value, type)
+      end
     end
 
     return default

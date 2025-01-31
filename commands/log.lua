@@ -130,7 +130,7 @@ return {
   subcommand = "log",
   description = "Show commit logs",
   options = {
-    arguments = { flag = getopts.flagless.collect(getopts.stop.remaining), params = "<file>" },
+    arguments = { flag = getopts.flagless.collect(getopts.stop.remaining), params = "[<file>]" },
     oneline = { flag = "oneline", description = "Show a single line per commit" }
   },
   run = run

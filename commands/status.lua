@@ -11,7 +11,7 @@ local DEFAULT_CHANGES_NOT_STAGED_MESSAGE = "Changes not staged for commit:\n"
 local UNTRACKED_FILES_MESSAGE = "Untracked files:\n"
   .. "  (use \"gitl add <file>...\" to include in what will be committed)"
 
-local NO_CHANGES_ADDED_MESSAGE = "no changes added to commit (use \"gitl add\")"
+local NO_CHANGES_ADDED_MESSAGE = "no changes added to commit (use \"gitl add\" and/or \"gitl commit -a\")"
 
 local function printFullStatus(allChanges)
   local treeChanges = allChanges.treeChanges

@@ -43,7 +43,16 @@ local function cloneRepo(projectDir, repository)
       local objectPercentage = string.format("%2d", math.floor(current / total * 100)) .. "%"
       local doneStr = isDone and ", done." or ""
       io.write("Receiving objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
-    end
+    end,
+    channelCallbacks = {
+      [2] = function(message)
+        driver.resetCursor()
+        io.write("remote: " .. message)
+      end,
+      [3] = function(message)
+        print("error: " .. message)
+      end
+    }
   })
   driver.enableCursor()
   print()

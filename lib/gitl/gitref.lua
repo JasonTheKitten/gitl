@@ -31,7 +31,8 @@ local function setLastCommitHash(gitdir, commit)
     return
   end
 
-  local refPath = filesystem.combine(gitdir, headContent:sub(6, -2))
+  local branchPath = headContent:gsub("[\r\n]", ""):sub(6, -1)
+  local refPath = filesystem.combine(gitdir, branchPath)
   writeAll(refPath, commit)
 end
 

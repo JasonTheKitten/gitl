@@ -65,7 +65,8 @@ local function clone(projectDir, repository, options)
     readObject = function(objectHash)
       return gitobj.readObject(gitDir, objectHash)
     end,
-    indicateProgress = options.indicateProgress or function() end
+    indicateProgress = options.indicateProgress or function() end,
+    channelCallbacks = options.channelCallbacks
   })
 
   -- Finally, all we need to do is check out the branch

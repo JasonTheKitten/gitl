@@ -5,6 +5,7 @@ local gitobj = localRequire("lib/gitl/gitobj")
 local gitdex = localRequire("lib/gitl/gitdex")
 local gitref = localRequire("lib/gitl/gitref")
 local gitconfig = localRequire("lib/gitl/gitconfig")
+local gitignore = localRequire("lib/gitl/gitignore")
 local filesystem = driver.filesystem
 
 local DEFAULT_EDIT_MESSAGE = "\n# Please enter the commit message for your changes. Lines starting\n"
@@ -42,6 +43,25 @@ local function validateCommitMessage(commitMsg)
   return commitMsg
 end
 
+local function addAllChanges(gitDir, projectDir)
+  local filter = gitignore.createFileFilter(projectDir)
+  local indexFile = filesystem.combine(gitDir, "index")
+  local index = filesystem.exists(indexFile) and gitdex.readIndex(indexFile) or gitdex.createIndex()
+  gitdex.addToIndex(index, projectDir, "", filter, gitDir)
+  gitdex.clearOldIndexEntries(index, projectDir, "", filter)
+  gitdex.writeIndex(index, indexFile)
+end
+
+local function determineParentsAndInitialMessage(gitDir, arguments)
+  local currentCommit = gitref.getLastCommitHash(gitDir)
+  if arguments.options.amend then
+    local commitData = gitobj.readAndDecodeObject(gitDir, currentCommit, "commit")
+    return commitData.parents, commitData.message
+  else
+    return { gitref.getLastCommitHash(gitDir) }, ""
+  end
+end
+
 local function run(arguments)
   local gitDir = assert(gitrepo.locateGitRepo())
 
@@ -52,16 +72,27 @@ local function run(arguments)
       .. "To set your name, run `gitl config --global set user.name <name>`\n"
       .. "To set your email, run `gitl config --global set user.email <email>`", -1)
   end
+
+  if arguments.options.all then
+    addAllChanges(gitDir, assert(gitrepo.locateProjectRepo()))
+  end
+
   local author = authorName .. " <" .. authorEmail .. ">"
 
   local commitTime, commitOffset = driver.timeAndOffset()
   local commitTimeFormatted = os.date("%a %b %d %H:%M:%S %Y", commitTime)
 
+  local indexPath = filesystem.combine(gitDir, "index")
+  local index = gitdex.readIndex(indexPath)
+  local treeHash = gitdex.writeTreeFromIndex(gitDir, index)
+
+  local commitParents, message = determineParentsAndInitialMessage(gitDir, arguments)
+
   local additionalEditMessage = "\n#\n# Date: " .. commitTimeFormatted .. "\n# Author: " .. author .. "\n#\n"
 
   local commitMsg =
     (arguments.options.message and arguments.options.message.arguments[1]) or
-    editCommit(gitDir, DEFAULT_EDIT_MESSAGE .. additionalEditMessage)
+    editCommit(gitDir, message .. DEFAULT_EDIT_MESSAGE .. additionalEditMessage)
   commitMsg = validateCommitMessage(commitMsg)
   -- TODO: Correct branch, correct hash
   local commitMsgShort = commitMsg:match("[^\r\n]+"):sub(1, 50)
@@ -69,15 +100,9 @@ local function run(arguments)
     commitMsgShort = commitMsgShort .. "..."
   end
 
-  local indexPath = filesystem.combine(gitDir, "index")
-  local index = gitdex.readIndex(indexPath)
-  local treeHash = gitdex.writeTreeFromIndex(gitDir, index)
-
-  local commitParent = gitref.getLastCommitHash(gitDir)
-
   local commitData = {
     tree = treeHash,
-    parents = { commitParent },
+    parents = commitParents,
     author = author,
     committer = author,
     authorTime = commitTime,
@@ -104,6 +129,8 @@ return {
       flag = "message", short = "m", params = "<msg>", description = "Use the commit message <msg>",
       multiple = getopts.stop.times(1)
     },
+    all = { flag = "all", short = "a", description = "Commit all changes" },
+    amend = { flag = "amend", description = "Amend the last commit" }
   },
   run = run
 }

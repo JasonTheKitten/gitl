@@ -3,7 +3,7 @@ local utils = localRequire("lib/utils")
 local gitobj = localRequire("lib/gitl/gitobj")
 local githttp = localRequire("lib/gitl/githttp")
 local gitref = localRequire("lib/gitl/gitref")
-local gitmerge = localRequire("lib/gitl/gitmerge")
+local gitcommits = localRequire("lib/gitl/gitcommits")
 local filesystem, writeAll = driver.filesystem, utils.writeAll
 
 local function chooseBranchAndHash(repository, httpSession, branchRef)
@@ -43,7 +43,7 @@ local function fetch(gitDir, repository, options)
   for k, v in ipairs(allBranches) do
     local branchHash = gitref.getBranchHash(gitDir, v, true)
     if branchHash then
-      local allCommitAncestors = gitmerge.getCommitAncestors(gitDir, branchHash)
+      local allCommitAncestors = gitcommits.getCommitAncestors(gitDir, branchHash)
       for i = #allCommitAncestors, 1, -1 do
         local commitHash = allCommitAncestors[i]
         if havesReverse[commitHash] then break end

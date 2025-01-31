@@ -13,10 +13,10 @@ local function fixupRepositoryURL(repository)
   return stripped .. "/"
 end
 
-local function parsePacketLines(packFileHandle, stages)
+local function parsePacketLines(packFileHandle, stages, options)
+  options = options or {}
   local currentStage = 1
   while currentStage <= #stages do
-    local channel = stages[currentStage][1]
     local n = packFileHandle.body:read(4)
     if n == nil then
       assert(currentStage == #stages, "Unexpected EOF")
@@ -28,10 +28,42 @@ local function parsePacketLines(packFileHandle, stages)
     else
       local nextLine = packFileHandle.body:read(objectLength):gsub("[\n\r]", "")
       if nextLine:sub(1, 1) ~= "#" then
-        if channel(nextLine) then break end
+        if stages[currentStage][1](nextLine) then break end
       end
     end
   end
+end
+
+local function createPacketLinesStream(innerStream, channelCallbacks, options)
+  if not options.sideband64k then
+    return innerStream
+  end
+
+  local function readLine()
+    local objectLength = tonumber(innerStream:read(4), 16) - 5
+    local channel = innerStream:read(1):byte()
+    local line = innerStream:read(objectLength)
+    if channelCallbacks[channel] then
+      channelCallbacks[channel](line)
+    end
+
+    return channel == 1 and line or ""
+  end
+
+  local buffer = ""
+  return {
+    read = function(_, n)
+      while #buffer < n do
+        buffer = buffer .. readLine()
+      end
+      local result = buffer:sub(1, n)
+      buffer = buffer:sub(n + 1)
+      return result
+    end,
+    close = function()
+      innerStream:close()
+    end
+  }
 end
 
 local function parseRefLine(nextLine, response)
@@ -108,7 +140,7 @@ end
 
 local function writePackFileOptions(writer, options)
   for k, v in ipairs(options.wants) do
-    local capabilityString = k == 1 and "\0report-status" or ""
+    local capabilityString = k == 1 and " report-status-v2 side-band-64k" or ""
     writer.write("want " .. v .. capabilityString)
   end
   writer.flush()
@@ -136,7 +168,8 @@ local function downloadPackFile(repository, httpSession, options, pakOptions)
     elseif nextLine:sub(1, 4) ~= "NAK" then
       error("Expected NAK response, got " .. nextLine)
     end
-    gitpak.decodePackFile(packFileHandle.body, pakOptions)
+    local packFileReader = createPacketLinesStream(packFileHandle.body, pakOptions.channelCallbacks or {}, { sideband64k = true })
+    gitpak.decodePackFile(packFileReader, pakOptions)
     return true
   end
 
@@ -147,11 +180,18 @@ local function downloadPackFile(repository, httpSession, options, pakOptions)
   packFileHandle.body:close()
 end
 
+local function determineCapabilitiesString()
+  local capabilities = { "report-status-v2", "side-band-64k", "delete-ref" }
+  return table.concat(capabilities, " ")
+end
+
 local function writeReferenceUpdates(writer, refUpdates)
- for i = 1, #refUpdates do
+  local capabilityStr = determineCapabilitiesString()
+  for i = 1, #refUpdates do
     local v = refUpdates[i]
-    local capabilityString = i == 1 and "\0report-status" or ""
-    writer.write(v.oldHash .. " " .. v.newHash .. " " .. v.refName .. capabilityString)
+    local capabilityString = i == 1 and ("\0" .. capabilityStr) or ""
+    local oldHash = v.oldHash or "0000000000000000000000000000000000000000"
+    writer.write(oldHash .. " " .. v.newHash .. " " .. v.refName .. capabilityString)
   end
   writer.flush()
 end

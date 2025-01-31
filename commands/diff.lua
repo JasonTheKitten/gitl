@@ -85,7 +85,7 @@ return {
   subcommand = "diff",
   description = "Show changes between commits, commit and working tree, etc",
   options = {
-    arguments = { flag = getopts.flagless.collect(getopts.stop.remaining), params = "<options> [--] <path>" },
+    arguments = { flag = getopts.flagless.collect(getopts.stop.remaining), params = "[<options>] [--] [<path>]" },
     noIndex = { flag = "no-index", description = "Compare two files against each other, instead of the index" },
     cached = { flag = "cached", description = "Show changes between the index and the last commit" },
   },

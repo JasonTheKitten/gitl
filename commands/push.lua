@@ -8,8 +8,9 @@ local function push(arguments)
   local gitDir = gitrepo.locateGitRepo()
   local remoteName, branchName = arguments.options.arguments[1], arguments.options.arguments[2]
   local repository = gitrepo.resolveRemoteRepo(gitDir, remoteName)
-  print("Pushing branch " .. branchName .. " to remote " .. remoteName)
-  gitpush.push(gitDir, repository, branchName, {
+  local forcedStr = arguments.options.force and " (forced update)" or ""
+  print("Pushing branch " .. branchName .. " to remote " .. remoteName .. forcedStr)
+  assert(gitpush.push(gitDir, repository, branchName, {
     credentialsCallback = gitcreds.userInputCredentialsHelper,
     displayStatus = print,
     indicateProgress = function(current, total, isDone)
@@ -19,8 +20,9 @@ local function push(arguments)
       local objectPercentage = string.format("%2d", math.floor(current / total * 100)) .. "%"
       local doneStr = isDone and ", done." or ""
       io.write("Compressing objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
-    end
-  })
+    end,
+    force = arguments.options.force
+  }))
 end
 
 return {
@@ -28,6 +30,7 @@ return {
   description = "Update remote refs along with associated objects",
   options = {
     arguments = { flag = getopts.flagless.collect(getopts.stop.times(2)), params = "<remote> <branch>" },
+    force = { flag = "force", short = "f", description = "Force push" },
   },
   run = push
 }

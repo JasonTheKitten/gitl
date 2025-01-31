@@ -57,7 +57,7 @@ return {
   subcommand = "pull",
   description = "Fetch from and integrate with another repository or a local branch",
   options = {
-    arguments = { flag = getopts.flagless.collect(getopts.stop.times(2)), description = "<repository> <branch>" },
+    arguments = { flag = getopts.flagless.collect(getopts.stop.times(2)), params = "<repository> <branch>" },
   },
   run = run
 }

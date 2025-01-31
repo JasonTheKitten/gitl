@@ -2,6 +2,7 @@ local gitobj = localRequire("lib/gitl/gitobj")
 local gitref = localRequire("lib/gitl/gitref")
 local githttp = localRequire("lib/gitl/githttp")
 local gitpak = localRequire("lib/gitl/gitpak")
+local gitcommits = localRequire("lib/gitl/gitcommits")
 local utils = localRequire("lib/utils")
 local sha1 = localRequire("third_party/sha1/init").sha1
 
@@ -29,23 +30,25 @@ local function push(gitDir, repository, branchName, options)
   local remoteBranchHash = remoteRefs.branches["refs/heads/" .. branchName]
 
   if remoteBranchHash == branchCommitHash then
-    return options.displayStatus("Everything up-to-date")
+    return true, options.displayStatus("Everything up-to-date")
+  end
+
+  -- TODO: If this returns nil (it likely will if the server's commit is not recognized), it's gonna cause us to push the entire history
+  local closestCommonHash = gitcommits.determineNearestAncestor(gitDir, { branchCommitHash, remoteBranchHash })
+  if (remoteBranchHash ~= nil) and (branchCommitHash ~= closestCommonHash) and not options.force then
+    return nil, "Failed to find common ancestor - is the remote ahead?"
   end
 
   local treeHashes = {}
   local commitWantHashes = {}
   local currentCommit, currentCommitHash = branchCommit, branchCommitHash
-  while currentCommitHash ~= remoteBranchHash do
+  while currentCommitHash ~= closestCommonHash do
     table.insert(treeHashes, currentCommit.tree)
     table.insert(commitWantHashes, currentCommitHash)
     if currentCommit.parents and #currentCommit.parents > 0 then
       currentCommitHash = currentCommit.parents[1]
       currentCommit = gitobj.readObject(gitDir, currentCommitHash)
     else break end
-  end
-
-  if (remoteBranchHash ~= nil) and (currentCommitHash ~= remoteBranchHash) then
-    error("Failed to find common ancestor - is the remote ahead?")
   end
 
   local wantHashes = {}
@@ -55,11 +58,11 @@ local function push(gitDir, repository, branchName, options)
     recursivelyEnumerateObjects(gitDir, tree, wantHashes)
   end
 
-  if remoteBranchHash then
+  if closestCommonHash then
     local haveHashes = {}
-    local remoteBranchCommit  = gitobj.readAndDecodeObject(gitDir, remoteBranchHash, "commit")
-    local remoteBranchTree = gitobj.readAndDecodeObject(gitDir, remoteBranchCommit.tree, "tree")
-    recursivelyEnumerateObjects(gitDir, remoteBranchTree, haveHashes)
+    local closestCommonCommit  = gitobj.readAndDecodeObject(gitDir, closestCommonHash, "commit")
+    local closestCommonTree = gitobj.readAndDecodeObject(gitDir, closestCommonCommit.tree, "tree")
+    recursivelyEnumerateObjects(gitDir, closestCommonTree, haveHashes)
 
     for haveHash in pairs(haveHashes) do
       wantHashes[haveHash] = nil
@@ -91,12 +94,15 @@ local function push(gitDir, repository, branchName, options)
   print()
 
   local refUpdate = {
-    oldHash = remoteBranchHash or "0000000000000000000000000000000000000000",
+    oldHash = remoteBranchHash,
     newHash = branchCommitHash,
-    refName = "refs/heads/" .. branchName
+    refName = "refs/heads/" .. branchName,
+    force = options.force
   }
 
   githttp.uploadPackFile(repository, httpSession, { refUpdate }, packData)
+
+  return true
 end
 
 return {
