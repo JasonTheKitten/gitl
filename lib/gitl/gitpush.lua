@@ -35,7 +35,6 @@ local function push(gitDir, repository, branchName, options)
 
   -- TODO: If this returns nil (it likely will if the server's commit is not recognized), it's gonna cause us to push the entire history
   local closestCommonHash = gitcommits.determineNearestAncestor(gitDir, { branchCommitHash, remoteBranchHash })
-  print("Closest common ancestor: " .. closestCommonHash, branchCommitHash, remoteBranchHash)
   if (remoteBranchHash ~= nil) and (remoteBranchHash ~= closestCommonHash) and not options.force then
     return nil, "Failed to find common ancestor - is the remote ahead?"
   end

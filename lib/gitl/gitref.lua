@@ -58,6 +58,28 @@ local function hasBranch(gitdir, branch)
   return filesystem.exists(refPath)
 end
 
+local function getActiveBranch(gitdir)
+  local headPath = filesystem.combine(gitdir, "HEAD")
+  if not filesystem.exists(headPath) then
+    return nil, "Head does not exist"
+  end
+  local headContent = readAll(headPath)
+
+  if headContent:sub(1, 5) ~= "ref: " then
+    return nil, "Detached HEAD"
+  end
+
+  return headContent:match("([^\n]+)")
+end
+
+local function setActiveBranch(gitdir, branch)
+  if branch == nil then
+    return nil, "Branch name is required"
+  end
+  local headPath = filesystem.combine(gitdir, "HEAD")
+  writeAll(headPath, "ref: refs/heads/" .. branch)
+end
+
 local function formatCurrentCommitRef(gitdir)
   local headPath = filesystem.combine(gitdir, "HEAD")
   if not filesystem.exists(headPath) then
@@ -95,6 +117,8 @@ return {
   getBranchHash = getBranchHash,
   setBranchHash = setBranchHash,
   hasBranch = hasBranch,
+  getActiveBranch = getActiveBranch,
+  setActiveBranch = setActiveBranch,
   formatCurrentCommitRef = formatCurrentCommitRef,
   isDetachedHead = isDetachedHead
 }

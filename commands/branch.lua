@@ -1,4 +1,5 @@
 local driver = localRequire("driver")
+local getopts = localRequire("lib/getopts")
 local gitrepo = localRequire("lib/gitl/gitrepo")
 local gitref = localRequire("lib/gitl/gitref")
 local filesystem = driver.filesystem
@@ -45,9 +46,75 @@ local function listBranches(gitRepo, showExisting, showRemote)
   end
 end
 
+local function deleteBranch(gitDir, branchName)
+  local branchPath = filesystem.combine(gitDir, "refs/heads", branchName)
+  if not filesystem.exists(branchPath) then
+    error("Branch does not exist: " .. branchName, -1)
+  end
+  filesystem.rm(branchPath)
+end
+
+local copy
+copy = function(originalPath, newPath)
+  if filesystem.isDir(originalPath) then
+    filesystem.makeDir(newPath)
+    for _, entry in ipairs(filesystem.list(originalPath)) do
+      copy(filesystem.combine(originalPath, entry), filesystem.combine(newPath, entry))
+    end
+  else
+    local file = assert(io.open(originalPath, "rb"))
+    local data = file:read("*a")
+    file:close()
+
+    local newFile = assert(io.open(newPath, "wb"))
+    newFile:write(data)
+    newFile:close()
+  end
+end
+
+local function renameBranch(gitDir, originalBranchName, newBranchName, force, isCopy)
+  local originalBranchPath = filesystem.combine(gitDir, "refs/heads", originalBranchName)
+  if not filesystem.exists(originalBranchPath) then
+    error("Branch does not exist: " .. originalBranchName, -1)
+  end
+
+  local newBranchPath = filesystem.combine(gitDir, "refs/heads", newBranchName)
+  if filesystem.exists(newBranchPath) then
+    if not force then
+      error("Branch already exists: " .. newBranchName, -1)
+    end
+    filesystem.rm(newBranchPath)
+  end
+
+  copy(originalBranchPath, newBranchPath)
+
+  if not isCopy then
+    local head = gitref.getActiveBranch(gitDir)
+    if head == originalBranchName then
+      gitref.setActiveBranch(gitDir, newBranchName)
+    end
+
+    filesystem.rm(originalBranchPath)
+  end
+end
 
 local function run(arguments)
   local gitDir = assert(gitrepo.locateGitRepo())
+  if arguments.options.delete then
+    deleteBranch(gitDir, arguments.options.delete.arguments[1])
+    return
+  end
+
+  local isNormalAction = arguments.options.copy or arguments.options.rename
+  local isForceAction = arguments.options.forceCopy or arguments.options.forceRename
+  local isCopy = arguments.options.copy or arguments.options.forceCopy
+  local activeOption = isNormalAction or isForceAction
+  if isNormalAction or isForceAction then
+    local originalBranchName, newBranchName = activeOption.arguments[1], activeOption.arguments[2]
+    renameBranch(gitDir, originalBranchName, newBranchName, isForceAction, isCopy)
+    return
+  end
+
   local impliedList = not arguments.options.remotes
   local allList = arguments.options.all
   listBranches(gitDir, arguments.options.list or allList or impliedList, arguments.options.remotes or allList)
@@ -60,6 +127,11 @@ return {
     list = { flag = "list", short = "l", description = "List existing branches" },
     remotes = { flag = "remotes", short = "r", description = "List remote branches" },
     all = { flag = "all", short = "a", description = "List both remote-tracking branches and local branches" },
+    delete = { flag = "delete", short = { "d", "D" }, params = "<branch>", description = "Delete a branch", multiple = getopts.stop.single },
+    copy = { flag = "copy", short = "c", description = "Copy the branch to a new branch", multiple = getopts.stop.times(2) },
+    forceCopy = { flag = "force-copy", short = "C", description = "Force copy the branch to a new branch", multiple = getopts.stop.times(2) },
+    rename = { flag = "rename", short = "m", description = "Rename a branch", multiple = getopts.stop.times(2) },
+    forceRename = { flag = "force-rename", short = "M", description = "Force rename a branch", multiple = getopts.stop.times(2) }
   },
   run = run
 }
