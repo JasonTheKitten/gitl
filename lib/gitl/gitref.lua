@@ -60,15 +60,19 @@ end
 
 local function formatCurrentCommitRef(gitdir)
   local headPath = filesystem.combine(gitdir, "HEAD")
-  if not filesystem.exists(headPath) then return end
+  if not filesystem.exists(headPath) then
+    return nil, "Head does not exist"
+  end
   local headContent = readAll(headPath)
 
   if headContent:sub(1, 5) ~= "ref: " then
     return "[detached HEAD" .. headContent:match("([^\n]+)") .. "]"
   end
 
-  local refPath = filesystem.combine(gitdir, headContent:sub(6, -2))
-  if not filesystem.exists(refPath) then return end
+  local refPath = filesystem.combine(gitdir, headContent:match("([^\n]+)"):sub(6, -1))
+  if not filesystem.exists(refPath) then
+    return nil, "Ref does not exist"
+  end
   local commitHash = readAll(refPath):match("([^\n]+)"):sub(1, 7)
   local refName = headContent:match("([^/]+)$"):match("([^\n]+)")
   return "[" .. refName .. " " .. commitHash .. "]"
@@ -76,7 +80,9 @@ end
 
 local function isDetachedHead(gitdir)
   local headPath = filesystem.combine(gitdir, "HEAD")
-  if not filesystem.exists(headPath) then return end
+  if not filesystem.exists(headPath) then
+    return nil, "Head does not exist"
+  end
   local headContent = readAll(headPath)
 
   return headContent:sub(1, 5) ~= "ref: "

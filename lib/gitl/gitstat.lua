@@ -61,7 +61,7 @@ local function compareWorkingWithIndex(gitDir, projectDir, index, filter)
   filter = filter or gitignore.createFileFilter(projectDir)
 
   local workingIndex = gitdex.createIndex()
-  gitdex.addToIndex(workingIndex, projectDir, "", filter, gitDir, true)
+  gitdex.addToIndex(gitDir, workingIndex, projectDir, "", filter, true)
 
   return diffIndexes(index, workingIndex, compareIndexEntries)
 end

@@ -106,8 +106,8 @@ local function finalizeExistingSwitch(gitDir, projectDir, newHead, newCommitHash
   local filter = gitignore.createFileFilter(projectDir)
   local indexFile = filesystem.combine(gitDir, "index")
   local index = filesystem.exists(indexFile) and gitdex.readIndex(indexFile) or gitdex.createIndex()
-  gitdex.addToIndex(index, projectDir, "", filter, gitDir)
-  gitdex.clearOldIndexEntries(index, projectDir, "", filter)
+  gitdex.addToIndex(gitDir, index, projectDir, "", filter)
+  gitdex.clearOldIndexEntries(projectDir, index, projectDir, "", filter)
   gitdex.writeIndex(index, indexFile)
 end
 

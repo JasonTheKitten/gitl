@@ -145,7 +145,7 @@ local function selectGitPerm(str)
 end
 
 local addToIndex
-addToIndex = function(index, path, indexPath, filter, gitDir, skipWrite)
+addToIndex = function(gitDir, index, path, indexPath, filter, skipWrite)
   if indexPath:sub(1, 1) == "/" then
     indexPath = indexPath:sub(2)
   end
@@ -156,7 +156,7 @@ addToIndex = function(index, path, indexPath, filter, gitDir, skipWrite)
     -- Ignore
   elseif filesystem.isDir(path) then
     for _, file in ipairs(filesystem.list(path)) do
-      addToIndex(index, filesystem.combine(path, file), filesystem.combine(indexPath, file), filter, gitDir, skipWrite)
+      addToIndex(gitDir, index, filesystem.combine(path, file), filesystem.combine(indexPath, file), filter, skipWrite)
     end
   elseif filesystem.isFile(path) and not compareEntries(existingEntry, filesystem.attributes(path)) then
     local fileAttributes = filesystem.attributes(path)
@@ -179,7 +179,21 @@ addToIndex = function(index, path, indexPath, filter, gitDir, skipWrite)
   end
 end
 
-local clearOldIndexEntries = function(index, path, indexPath, filter)
+local removeFromIndex
+removeFromIndex = function(index, indexPath, recursive)
+  if not recursive then
+    removeEntry(index, indexPath)
+    return
+  end
+
+  reduceEntries(index, function(entry)
+    local isFileMatch = entry.name == indexPath
+    local isDirMatch = entry.name:sub(1, #indexPath + 1) == (indexPath .. "/")
+    return not isFileMatch and not isDirMatch
+  end)
+end
+
+local clearOldIndexEntries = function(projectDir, index, path, indexPath, filter)
   if indexPath:sub(1, 1) == "/" then
     indexPath = indexPath:sub(2)
   end
@@ -195,7 +209,7 @@ local clearOldIndexEntries = function(index, path, indexPath, filter)
     if (entry.name ~= indexPath) and (entry.name:sub(1, #indexPath + 1) ~= (indexPath .. "/")) and indexPath ~= "" then
       return true
     end
-    return filesystem.exists(filesystem.combine(path, entry.name))
+    return filesystem.exists(filesystem.combine(projectDir, entry.name))
   end)
 end
 
@@ -367,6 +381,7 @@ return {
   updateEntry = updateEntry,
   getEntry = getEntry,
   addToIndex = addToIndex,
+  removeFromIndex = removeFromIndex,
   clearOldIndexEntries = clearOldIndexEntries,
   writeIndex = writeIndex,
   readIndex = readIndex,

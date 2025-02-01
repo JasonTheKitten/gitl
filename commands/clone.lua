@@ -39,15 +39,17 @@ local function cloneRepo(projectDir, repository)
     indicateProgress = function(current, total, isDone)
       local totalLen = #tostring(total)
       driver.resetCursor()
-      local objectCountStr = string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects"
+      local objectCountStr = string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total)
       local objectPercentage = string.format("%2d", math.floor(current / total * 100)) .. "%"
       local doneStr = isDone and ", done." or ""
       io.write("Receiving objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
     end,
     channelCallbacks = {
       [2] = function(message)
-        driver.resetCursor()
-        io.write("remote: " .. message)
+        for line in message:gmatch("[^\r]+") do
+          driver.resetCursor()
+          io.write("remote: " .. line)
+        end
       end,
       [3] = function(message)
         print("error: " .. message)

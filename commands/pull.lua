@@ -24,7 +24,7 @@ local function run(arguments)
     indicateProgress = function(current, total, isDone)
       local totalLen = #tostring(total)
       driver.resetCursor()
-      local objectCountStr = string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total) .. " objects"
+      local objectCountStr = string.format("%0" .. totalLen .. "d", current) .. "/" .. tostring(total)
       local objectPercentage = string.format("%2d", current / total * 100) .. "%"
       local doneStr = isDone and ", done." or ""
       io.write("Receiving objects: " .. objectPercentage .. " (" .. objectCountStr .. ")" .. doneStr)
