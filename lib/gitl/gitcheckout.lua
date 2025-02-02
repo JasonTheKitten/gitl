@@ -9,7 +9,7 @@ local filesystem, writeAll = driver.filesystem, utils.writeAll
 
 -- TODO: Track reflogs (branch command too)
 
-local function switchToNewBranch(gitDir, branch)
+local function switchToNewBranch(gitDir, branch, orphaned)
   local branchesDir = filesystem.combine(gitDir, "refs/heads")
   if not filesystem.exists(branchesDir) then
     filesystem.makeDir(branchesDir)
@@ -21,7 +21,7 @@ local function switchToNewBranch(gitDir, branch)
   end
 
   local currentCommit = gitref.getLastCommitHash(gitDir)
-  if currentCommit then
+  if currentCommit and not orphaned then
     local newHeadDir = filesystem.combine(branchesDir, branch)
     writeAll(newHeadDir, currentCommit)
   end
@@ -114,15 +114,18 @@ end
 local function switchToExistingBranch(gitDir, projectDir, newCommitHash, newHead)
   -- First, get the current tree
   local currentCommitHash = gitref.getLastCommitHash(gitDir)
-  local currentCommitTreeHash = gitobj.readAndDecodeObject(gitDir, currentCommitHash, "commit").tree
-  local currentTree = gitobj.readAndDecodeObject(gitDir, currentCommitTreeHash, "tree")
+  if currentCommitHash then
+    local currentCommitTreeHash = gitobj.readAndDecodeObject(gitDir, currentCommitHash, "commit").tree
+    local currentTree = gitobj.readAndDecodeObject(gitDir, currentCommitTreeHash, "tree")
 
-  -- Next, the new tree
-  local newCommit = gitobj.readAndDecodeObject(gitDir, newCommitHash, "commit")
-  local newTree = gitobj.readAndDecodeObject(gitDir, newCommit.tree, "tree")
+    -- Next, the new tree
+    local newCommit = gitobj.readAndDecodeObject(gitDir, newCommitHash, "commit")
+    local newTree = gitobj.readAndDecodeObject(gitDir, newCommit.tree, "tree")
 
-  -- Now, update the working directory
-  updateWorkingDirectory(gitDir, projectDir, currentTree, newTree)
+    -- Now, update the working directory
+    updateWorkingDirectory(gitDir, projectDir, currentTree, newTree)
+  end
+  -- TODO: What do we do otherwise? For now, we'll just let the user deal with it
 
   finalizeExistingSwitch(gitDir, projectDir, newHead, newCommitHash)
 end

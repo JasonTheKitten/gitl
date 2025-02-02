@@ -128,10 +128,10 @@ return {
     remotes = { flag = "remotes", short = "r", description = "List remote branches" },
     all = { flag = "all", short = "a", description = "List both remote-tracking branches and local branches" },
     delete = { flag = "delete", short = { "d", "D" }, params = "<branch>", description = "Delete a branch", multiple = getopts.stop.single },
-    copy = { flag = "copy", short = "c", description = "Copy the branch to a new branch", multiple = getopts.stop.times(2) },
-    forceCopy = { flag = "force-copy", short = "C", description = "Force copy the branch to a new branch", multiple = getopts.stop.times(2) },
-    rename = { flag = "rename", short = "m", description = "Rename a branch", multiple = getopts.stop.times(2) },
-    forceRename = { flag = "force-rename", short = "M", description = "Force rename a branch", multiple = getopts.stop.times(2) }
+    copy = { flag = "copy", short = "c", params = "<oldbranch> <newbranch>", description = "Copy the branch to a new branch", multiple = getopts.stop.times(2) },
+    forceCopy = { flag = "force-copy", short = "C", params = "<oldbranch> <newbranch>", description = "Force copy the branch to a new branch", multiple = getopts.stop.times(2) },
+    rename = { flag = "rename", short = "m", params = "<oldbranch> <newbranch>", description = "Rename a branch", multiple = getopts.stop.times(2) },
+    forceRename = { flag = "force-rename", short = "M", params = "<oldbranch> <newbranch>", description = "Force rename a branch", multiple = getopts.stop.times(2) }
   },
   run = run
 }

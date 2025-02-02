@@ -2,7 +2,7 @@ local driver = localRequire("driver")
 local utils = localRequire("lib/utils")
 local gitobj = localRequire("lib/gitl/gitobj")
 local githttp = localRequire("lib/gitl/githttp")
-local gitcheckout = localRequire("lib/gitl/gitcheckout")
+local gitshallow = localRequire("lib/gitl/gitshallow")
 local filesystem, writeAll = driver.filesystem, utils.writeAll
 
 local function chooseBranchAndHash(repository, httpSession, defaultBranch)
@@ -55,7 +55,10 @@ local function clone(projectDir, repository, options)
 
   -- Now, download a packfile of new objects
   local packFileOptions = {
-    wants = { branchHash }
+    wants = { branchHash },
+    depths = {
+      [branchHash] = options.depth
+    }
   }
 
   githttp.downloadPackFile(repository, httpSession, packFileOptions, {
@@ -69,10 +72,14 @@ local function clone(projectDir, repository, options)
     channelCallbacks = options.channelCallbacks
   })
 
-  -- Finally, all we need to do is check out the branch
-  gitcheckout.freshCheckoutExistingBranch(gitDir, projectDir, branchHash, newHead)
+  -- Finally, mark shallow commits
+  if options.depth then
+    local shallowCommits = gitshallow.getShallowCommits(gitDir)
+    shallowCommits[branchHash] = true
+    gitshallow.storeShallowCommits(gitDir, shallowCommits)
+  end
 
-  return true
+  return branchHash, newHead
 end
 
 return {

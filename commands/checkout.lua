@@ -7,6 +7,7 @@ local gitobj = localRequire("lib/gitl/gitobj")
 local gitcheckout = localRequire("lib/gitl/gitcheckout")
 local gitcommits = localRequire("lib/gitl/gitcommits")
 local gitconfig = localRequire("lib/gitl/gitconfig")
+local gitref = localRequire("lib/gitl/gitref")
 local filesystem, readAll = driver.filesystem, utils.readAll
 
 local DEFAULT_OVERWITE_ERROR_MESSAGE =
@@ -29,6 +30,11 @@ Turn off this advice by setting config variable advice.detachedHead to false]]
 -- TODO: Better, more lenient conflict handling
 -- Also, what if new branch would overwrite a gitignore'd file?
 local function ensureNoFilesStaged(gitDir, projectDir)
+  local currentCommitHash = gitref.getLastCommitHash(gitDir)
+  if not currentCommitHash then
+    return true
+  end
+
   local differences = gitstat.stat(gitDir, projectDir)
   local checks = {
     differences.workingDirChanges.insertions,
@@ -85,13 +91,13 @@ local function run(arguments)
   local gitDir = assert(gitrepo.locateGitRepo())
 
   -- Start with the simplist case
-  if arguments.options.branch then
+  if arguments.options.branch or arguments.options.orphaned then
     if #arguments.options.arguments == 0 then
       error("No branch name specified", -1)
     end
 
     local branchName = arguments.options.arguments[1]
-    local ok, err = gitcheckout.switchToNewBranch(gitDir, branchName)
+    local ok, err = gitcheckout.switchToNewBranch(gitDir, branchName, arguments.options.orphaned)
     if not ok then
       error(err, -1)
     end
@@ -109,11 +115,12 @@ end
 
 return {
   subcommand = "checkout",
-  description = "Switch branches or restore working tree files",
+  description = "Switch branches",
   options = {
     arguments = { flag = getopts.flagless.collect(getopts.stop.remaining), params = "<branch>" },
     branch = { flag = "branch", short = "b", description = "Create a new branch and switch to it" },
-    force = { flag = "force", short = "f", description = "Proceed even if the index or the working tree differs from HEAD" }
+    force = { flag = "force", short = "f", description = "Proceed even if the index or the working tree differs from HEAD" },
+    orphaned = { flag = "orphan", description = "Create a new branch with no history" }
   },
   run = run
 }

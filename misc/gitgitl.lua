@@ -84,7 +84,38 @@ local cloneCommand = localRequire("commands/clone")
 local optionsSpec = { clone = cloneCommand }
 
 local options = getopts.options(optionsSpec)
-local ok, results = getopts.parse(options, { "clone", "https://github.com/JasonTheKitten/gitl.git" }, {
+
+local allArguments = { "clone", "https://github.com/JasonTheKitten/gitl.git" }
+local installerOptions = getopts.options({
+  noShallow = { flag = "noshallow", description = "Do not perform a shallow clone" },
+  branch = { flag = "branch", params = "<branch>", description = "Clone a specific branch", multiple = getopts.stop.single },
+  skipSetup = { flag = "skipsetup", description = "Skip post-install setup" },
+  location = { flag = "location", params = "<location>", description = "Clone to a specific location", multiple = getopts.stop.single }
+})
+local ok, installerFlags = getopts.parse(installerOptions, { ... }, {
+  argumentPreprocessor = getopts.argumentPreprocessors.detect,
+})
+if not ok then
+  error(installerFlags)
+end
+local location = installerFlags.location and installerFlags.location.arguments[1] or "gitl"
+
+if installerFlags.branch then
+  table.insert(allArguments, "--branch")
+  table.insert(allArguments, installerFlags.branch.arguments[1])
+end
+
+if not installerFlags.noShallow then
+  table.insert(allArguments, "--depth")
+  table.insert(allArguments, "1")
+end
+
+if installerFlags.location then
+  table.insert(allArguments, installerFlags.location.arguments[1])
+end
+
+local results
+ok, results = getopts.parse(options, allArguments, {
   argumentPreprocessor = getopts.argumentPreprocessors.detect,
   delimiter = "-%",
   commandKey = "command",
@@ -95,41 +126,52 @@ if not ok then
   error(results)
 end
 
+print("HINT: This installer supports additional flags.")
+print("HINT: Try using --noshallow, --branch, --skipsetup, or --location.")
+
 print("Starting installation...")
 cloneCommand.run(results.clone)
+
+if installerFlags.skipSetup then
+  print("Skipping post-install setup")
+  print("For future updates, cd into the installation directory and `run gitl pull origin main`.")
+  return
+end
 
 print("Setting some things up...")
 ---@diagnostic disable-next-line: undefined-field
 if os.pullEvent then
   local pathText = [[--Add gitl to the path
-shell.setPath(shell.path() .. ":/gitl/bin")]]
-  print("COPY gitl/misc/dumbrun.lua /bin/luajit")
-  shell.run("copy gitl/misc/dumbrun.lua /bin/luajit")
+shell.setPath(shell.path() .. ":/$LOCATION/bin")]]
+  print("COPY " .. location .. "/misc/dumbrun.lua /bin/luajit")
+  shell.run("copy " .. location .. "/misc/dumbrun.lua /bin/luajit")
+  local absolutePath = fs.combine(shell.dir(), location)
   if fs.isDir("startup") then
     print("CREATE startup/50_gitl.lua")
     local file = assert(io.open("startup/50_gitl.lua", "w"))
-    file:write(pathText)
+    file:write(pathText:gsub("$LOCATION", absolutePath))
     file:close()
   else
     print("APPEND startup.lua")
     local file = assert(io.open("startup.lua", "a"))
-    file:write("\n" .. pathText)
+    file:write("\n" .. pathText:gsub("$LOCATION", absolutePath))
     file:close()
   end
 elseif computer then
   local pathText = [[--Add gitl to the path
-os.setenv("PATH", os.getenv("PATH") .. ":/gitl/bin")]]
-  print("COPY gitl/misc/dumbrun.lua /bin/luajit")
-  os.execute("copy gitl/misc/dumbrun.lua /bin/luajit")
+os.setenv("PATH", os.getenv("PATH") .. ":/$LOCATION/bin")]]
+  local absolutePath = fs.combine(require("shell").getWorkingDirectory(), location)
+  print("COPY " .. location .. "/misc/dumbrun.lua /bin/luajit")
+  os.execute("copy " .. location .. "/misc/dumbrun.lua /bin/luajit")
   print("APPEND /etc/profile.lua")
   local file = assert(io.open("/etc/profile.lua", "a"))
-  file:write("\n" .. pathText)
+  file:write("\n" .. pathText:gsub("$LOCATION", absolutePath))
   file:close()
 else
   local pathText = [[#Add gitl to the path
 export PATH=$PATH":/home/jason/Code/gitl/bin"]]
-  print("SETMODE gitl/bin/gitl")
-  os.execute("chmod u+x gitl/bin/gitl")
+  print("SETMODE " .. location .. "/bin/gitl")
+  os.execute("chmod u+x " .. location .. "/bin/gitl")
   print("APPEND ~/.bashrc")
   local bashrcPath = os.getenv("HOME") .. "/.bashrc"
   local file = assert(io.open(bashrcPath, "a"))

@@ -130,7 +130,7 @@ local function downloadAvailableRefs(repository, httpSession, isUpload)
 
   parsePacketLines(packFileHandle, {
     { function(line) end },
-    { onMainMessage }
+    { onMainMessage },
   })
 
   packFileHandle.body:close()
@@ -142,6 +142,9 @@ local function writePackFileOptions(writer, options)
   for k, v in ipairs(options.wants) do
     local capabilityString = k == 1 and " report-status-v2 side-band-64k" or ""
     writer.write("want " .. v .. capabilityString)
+    if options.depths and options.depths[v] then
+      writer.write("deepen " .. options.depths[v])
+    end
   end
   writer.flush()
   for _, v in ipairs(options.haves or {}) do
@@ -165,16 +168,20 @@ local function downloadPackFile(repository, httpSession, options, pakOptions)
   local function onMainMessage(nextLine)
     if nextLine:sub(1, 3) == "ACK" then
       return true
+    elseif nextLine:sub(1, 8) == "shallow " then
+      -- TODO: We don't really care yet
     elseif nextLine:sub(1, 4) ~= "NAK" then
       error("Expected NAK response, got " .. nextLine)
+    else
+      local packFileReader = createPacketLinesStream(packFileHandle.body, pakOptions.channelCallbacks or {}, { sideband64k = true })
+      gitpak.decodePackFile(packFileReader, pakOptions)
+      return true
     end
-    local packFileReader = createPacketLinesStream(packFileHandle.body, pakOptions.channelCallbacks or {}, { sideband64k = true })
-    gitpak.decodePackFile(packFileReader, pakOptions)
-    return true
   end
 
   parsePacketLines(packFileHandle, {
-    { onMainMessage }
+    { onMainMessage },
+    { onMainMessage}
   })
 
   packFileHandle.body:close()
