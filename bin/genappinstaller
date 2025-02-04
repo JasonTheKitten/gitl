@@ -1,0 +1,108 @@
+#!/bin/luajit
+-- Some environments do not have /usr/bin/env, so we just specify the direct path
+
+local originalEnv = {}
+for k, v in pairs(_ENV or _G) do
+  originalEnv[k] = v
+end
+
+local cache = {}
+local localRequire
+function localRequire(name)
+  if cache[name] then
+    return cache[name]
+  end
+
+  local scriptPath, scriptDir
+  if originalEnv.PROGRAM_LOCATION then
+    scriptDir = _ENV.PROGRAM_LOCATION
+  else
+    scriptPath = debug.getinfo(1, "S").source:sub(2)
+    scriptDir = (scriptPath:match("(.*/)") or "./") .. "../"
+  end
+
+  local env = {}
+  for k, v in pairs(originalEnv) do
+    env[k] = v
+  end
+  env.localRequire = localRequire
+
+  local loadName = name
+  if loadName == "driver" then
+    if originalEnv.DRIVER_NAME then
+      loadName = "drivers/" .. _ENV.DRIVER_NAME
+    else
+      loadName = "drivers/driver_puc"
+    end
+  end
+  
+  local ok, err = loadfile(scriptDir .. loadName .. ".lua", "t", env)
+  if not ok then
+    error(err)
+  end
+
+  local result = ok()
+  cache[name] = result
+  return result
+end
+
+--
+
+local driver = localRequire("driver")
+local getopts = localRequire("lib/getopts")
+local utils = localRequire("lib/utils")
+local filesystem = driver.filesystem
+
+local optionsSpec = {
+  arguments = { flag = getopts.flagless.collect(getopts.stop.single), params = "<giturl>" },
+  help = { flag = "help", short = "h", description = "Display this help message" },
+  output = { flag = "output", short = "o", params = "<path>", description = "Specify the output path", multiple = getopts.stop.single },
+  template = { flag = "template", short = "t", params = "<path>", description = "Specify the template path", multiple = getopts.stop.single },
+  preInstall = { flag = "pre-install", short = "P", params = "<path>", description = "Specify the pre-install script path", multiple = getopts.stop.single },
+  postInstall = { flag = "post-install", short = "p", params = "<path>", description = "Specify the post-install script path", multiple = getopts.stop.single },
+}
+
+local options = getopts.options(optionsSpec)
+local ok, results = getopts.parse(options, { ... }, {
+  argumentPreprocessor = getopts.argumentPreprocessors.detect,
+  delimiter = "-%",
+  commandKey = "command",
+  requireSubcommand = false
+})
+
+if not ok then
+  print(results)
+end
+if results.help or not ok then
+  print("Welcome to GenAppInstaller, a gitl-powered tool for generating an installer for your application!")
+  print(getopts.generateHelpMessage(options))
+
+  return
+end
+
+local giturl = results.arguments[1]
+
+local templatePath =
+  results.template and filesystem.combine(filesystem.workingDir(), results.template)
+  or filesystem.combine(filesystem.codeDir(), "misc/installer-template.lua")
+
+local preInstallPath = results.preInstall and filesystem.combine(filesystem.workingDir(), results.preInstall.arguments[1])
+local postInstallPath = results.postInstall and filesystem.combine(filesystem.workingDir(), results.postInstall.arguments[1])
+local outputPath =
+  results.output and filesystem.combine(filesystem.workingDir(), results.output)
+  or filesystem.combine(filesystem.workingDir(), "installer.lua")
+
+local templateContent = utils.readAll(templatePath)
+
+if preInstallPath then
+  local preInstallContent = utils.readAll(preInstallPath)
+  templateContent = templateContent:gsub("$PREINSTALL_SCRIPT", "\n" .. preInstallContent)
+end
+
+if postInstallPath then
+  local postInstallContent = assert(utils.readAll(postInstallPath))
+  templateContent = templateContent:gsub("$POSTINSTALL_SCRIPT", "\n" .. postInstallContent)
+end
+templateContent = templateContent:gsub("$GIT_URL", giturl)
+
+utils.writeAll(outputPath, templateContent)
