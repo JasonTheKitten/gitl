@@ -160,7 +160,7 @@ shell.setPath(shell.path() .. ":/$LOCATION/bin")]]
 elseif computer then
   local pathText = [[--Add gitl to the path
 os.setenv("PATH", os.getenv("PATH") .. ":/$LOCATION/bin")]]
-  local absolutePath = fs.combine(require("shell").getWorkingDirectory(), location)
+  local absolutePath = require("shell").getWorkingDirectory() .. "/" .. location
   print("COPY " .. location .. "/misc/dumbrun.lua /bin/luajit")
   os.execute("copy " .. location .. "/misc/dumbrun.lua /bin/luajit")
   print("APPEND /etc/profile.lua")
